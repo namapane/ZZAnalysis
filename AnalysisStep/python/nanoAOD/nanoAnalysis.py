@@ -15,12 +15,12 @@ ZmassValue = 91.1876;
 
 
 conf = dict(
-    muPt = 5, 
-    elePt = 7, 
-    miniRelIso = 0.4, 
+    muPt = 5,
+    elePt = 7,
+    miniRelIso = 0.4,
     sip3d = 4,
-    dxy =  0.5, 
-    dz = 1, 
+    dxy =  0.5,
+    dz = 1,
     eleId = "mvaFall17V2noIso_WPL",
     muId = ""
 )
@@ -36,7 +36,7 @@ def bestZByMass(a,b):
 
 
 
-class ZProducer(Module):
+class ZZProducer(Module):
     def __init__(self, muSel=None, eleSel=None):
         self.muSel = muSel
         self.eleSel = eleSel
@@ -84,7 +84,7 @@ class ZProducer(Module):
                     zmass = Z_p4.M()
 
                     print('Z={:.4g} pt1={:.3g} pt2={:.3g}'.format(zmass, l1.pt, l2.pt))
-                    if (zmass>40. and zmass<120.):
+                    if (zmass>12. and zmass<120.):
                         Zs.append([zmass, l1.pt+l2.pt, i, j, Z_p4]) # mass, sumpt, l_i, l_j, p4
 
         # Build all ZZ combinations passing the ZZ selection
@@ -98,19 +98,21 @@ class ZProducer(Module):
                     if abs(Zs[i][0]-ZmassValue) < abs(Zs[j][0]-ZmassValue):
                         Z1Idx, Z2Idx = Z2Idx, Z1Idx
 
-                    # Z2 mass cut
-                    if Zs[Z2Idx][0] <= 12. : continue
+                    # Z1 mass cut
+                    if Zs[Z1Idx][0] <= 40. : continue
 
                     lIdxs=[Zs[Z1Idx][2],Zs[Z1Idx][3],Zs[Z2Idx][2],Zs[Z2Idx][3]]
 
                     #FIXME: add DeltaR>0.02 cut among all leptons (still required)?
 
                     lepPts =[]
+                    # QCD suppression on all OS pairs, regardelss of flavour
+                    passQCD = True
                     for k in range(0,4):
                         lepPts.append(leps[lIdxs[k]].pt)
                         for l in range (k+1,4):
-                            # QCD suppression on all OS pairs, regardelss of flavour
-                            if leps[lIdxs[k]].pdgId*leps[lIdxs[l]].pdgId < 0 and (leps[lIdxs[k]].p4()+leps[lIdxs[l]].p4()).M()<=4.: continue 
+                            if leps[lIdxs[k]].pdgId*leps[lIdxs[l]].pdgId < 0 and (leps[lIdxs[k]].p4()+leps[lIdxs[l]].p4()).M()<=4.: passQCD = False
+                    if not passQCD: continue
 
                     Z2ptsum=lepPts[2]+lepPts[3]
 
@@ -139,20 +141,6 @@ class ZProducer(Module):
                                                                bestZZ_p4.M(),Zs[ZZ[0][0]][0], Zs[ZZ[0][1]][0]))
 
 
-        return True
-
-class ZZProducer(Module):
-    def __init__(self, ZSelection=None):
-        self.ZSel = ZSelection
-        pass
-
-    def beginJob(self):
-        pass
-
-    def endJob(self):
-        pass
-
-    def analyze(self, event):
         return True
 
 
@@ -213,12 +201,12 @@ muonSelection     = lambda l : abs(l.eta) < 2.4 and l.pt > conf["muPt"] and l.si
 electronSelection = lambda l : abs(l.eta) < 2.5 and l.pt > conf["elePt"] and l.sip3d < conf["sip3d"] and abs(l.dxy) < conf["dxy"] and abs(l.dz) < conf["dz"] #FIXME: add ID, BDT and getattr(l, conf["eleId"]) and l.miniPFRelIso_all < conf["miniRelIso"]
 
 
-ZZSequence = [lepSkim(), ZProducer(muSel = muonSelection, eleSel = electronSelection)]
+ZZSequence = [lepSkim(), ZZProducer(muSel = muonSelection, eleSel = electronSelection)]
 
 #preselection = "Jet_pt[0] > 250"
 preselection = ("nMuon + nElectron >= 2 &&" + 
                 "Sum$(Muon_pt > {muPt}) +" + #&& Muon_miniPFRelIso_all < {miniRelIso} && Muon_sip3d < {sip3d}"
-                "Sum$(Electron_pt > {muPt})" + #&& Electron_miniPFRelIso_all < {miniRelIso} && Electron_sip3d < {sip3d} && Electron_{eleId}"
+                "Sum$(Electron_pt > {elePt})" + #&& Electron_miniPFRelIso_all < {miniRelIso} && Electron_sip3d < {sip3d} && Electron_{eleId}"
                 ">= 2").format(**conf)
 
 files = [" root://cms-xrd-global.cern.ch//store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root"]
