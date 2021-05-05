@@ -26,8 +26,8 @@ conf = dict(
 )
 
 # Comparator to search for the best candidate in the event 
-def bestZByMass(a,b):
-    if a[2]-b[2] < 1e-4: # same Z1: choose the candidate with highest-pT Z2 leptons
+def bestCandByZ1Z2(a,b):
+    if abs(a[2]-b[2]) < 1e-4: # same Z1: choose the candidate with highest-pT Z2 leptons
         if a[3] > b[3] : return 1
         else: return -1
     else:
@@ -92,6 +92,11 @@ class ZZProducer(Module):
         if len(Zs) >= 2:
             for i,aZ in enumerate(Zs):
                 for j in range(i+1, len(Zs)):
+                    # check that these Zs are mutually exclusive
+                    if Zs[i][2]==Zs[j][2] or Zs[i][2]==Zs[j][3] or Zs[i][3]==Zs[j][2] or Zs[i][3]==Zs[j][3]: continue
+                    #FIXME:  add DeltaR>0.02 cut among all leptons (still required)?
+
+                    
                     # set Z1 and Z2
                     Z1Idx=j
                     Z2Idx=i
@@ -102,8 +107,6 @@ class ZZProducer(Module):
                     if Zs[Z1Idx][0] <= 40. : continue
 
                     lIdxs=[Zs[Z1Idx][2],Zs[Z1Idx][3],Zs[Z2Idx][2],Zs[Z2Idx][3]]
-
-                    #FIXME: add DeltaR>0.02 cut among all leptons (still required)?
 
                     lepPts =[]
                     # QCD suppression on all OS pairs, regardelss of flavour
@@ -132,10 +135,10 @@ class ZZProducer(Module):
                     if (abs(mZa-ZmassValue)<abs(Zs[Z1Idx][0]-ZmassValue)) and mZb < 12.: continue
                     
                     ZZ.append([Z1Idx, Z2Idx, abs(Zs[Z1Idx][0]-ZmassValue), Z2ptsum])
-                    
+                    #DEBUG print ([Z1Idx, Z2Idx, abs(Zs[Z1Idx][0]-ZmassValue), Z2ptsum])
             # Choose best ZZ candidate. FIXME: implement selection by D_bkg^kin
             if len(ZZ) > 0:
-                bestZZ = min(ZZ, key = cmp_to_key(bestZByMass))
+                bestZZ = min(ZZ, key = cmp_to_key(bestCandByZ1Z2))
                 bestZZ_p4=Zs[bestZZ[0]][4]+Zs[bestZZ[1]][4]
                 print ('{}:{}:{}:{:.4g}:{:.3g}:{:.3g}:'.format(event.run,event.luminosityBlock,event.event,
                                                                bestZZ_p4.M(),Zs[ZZ[0][0]][0], Zs[ZZ[0][1]][0]))
@@ -209,7 +212,8 @@ preselection = ("nMuon + nElectron >= 2 &&" +
                 "Sum$(Electron_pt > {elePt})" + #&& Electron_miniPFRelIso_all < {miniRelIso} && Electron_sip3d < {sip3d} && Electron_{eleId}"
                 ">= 2").format(**conf)
 
-files = [" root://cms-xrd-global.cern.ch//store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root"]
+store = "/eos/cms/" #if not at CERN: "root://cms-xrd-global.cern.ch/"
+files = [store+"/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root"]
 
 p = PostProcessor(".", files, cut=preselection, branchsel=None, modules=ZZSequence, noOut=True, histFileName="histOut.root", histDirName="plots", maxEntries=100)
 p.run()

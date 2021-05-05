@@ -7,7 +7,7 @@
 # chmod u+x ${TMPDIR}/checkout_10X.csh
 # ${TMPDIR}/checkout_10X.csh
 
-############## For CMSSW_10_2_18
+############## For CMSSW_10_2_22
 git cms-init
 
 #Preliminary electron scale and smearing corrections according to https://twiki.cern.ch/twiki/bin/view/CMS/EgammaPostRecoRecipes#2018_Preliminary_Energy_Correcti
@@ -42,8 +42,8 @@ git cms-merge-topic cms-met:METFixEE2017_949_v2_backport_to_102X
 
 #### Please do not add any custom (non-CMSSW) package before this line ####
 #ZZAnalysis
-git clone https://github.com/CJLST/ZZAnalysis.git ZZAnalysis
-(cd ZZAnalysis; git checkout Run2_CutBased_BTag16)
+git clone https://github.com/namapane/ZZAnalysis.git ZZAnalysis
+(cd ZZAnalysis; git checkout nanoAOD_dev)
 
 # Muon MVA
 git clone https://github.com/bonanomi/MuonMVAReader.git MuonMVAReader
@@ -91,6 +91,7 @@ git clone https://github.com/JHUGen/JHUGenMELA.git JHUGenMELA
 git clone https://github.com/mhl0116/KinZfitter-1.git KinZfitter
 (cd KinZfitter ; git checkout -b from-27daebb 27daebb)
 
-
+#NanoAODTools
+git clone https://github.com/cms-nanoAOD/nanoAOD-tools.git PhysicsTools/NanoAODTools
 
 
