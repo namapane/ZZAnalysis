@@ -3,6 +3,7 @@ from __future__ import print_function
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
+from PhysicsTools.NanoAODTools.postprocessing.tools import *
 from importlib import import_module
 from functools import cmp_to_key
 import os
@@ -13,14 +14,15 @@ ROOT.PyConfig.IgnoreCommandLineOptions = True
 charge={1:"+", -1:"-"}
 ZmassValue = 91.1876;
 
+DEBUG = True
 
 conf = dict(
-    muPt = 5,
-    elePt = 7,
-    miniRelIso = 0.4,
-    sip3d = 4,
+    muPt = 5.,
+    elePt = 7.,
+    relIso = 0.35,
+    sip3d = 4.,
     dxy =  0.5,
-    dz = 1,
+    dz = 1.,
     eleId = "mvaFall17V2noIso_WPL",
     muId = ""
 )
@@ -64,19 +66,66 @@ class ZZProducer(Module):
         fsrPhotons = Collection(event, "FsrPhoton")
 
 
-        leps=filter(self.muSel, muons) #FIXME add electrons
-        
+        leps = filter(self.muSel, muons)
+        leps += filter(self.eleSel, electrons)
         nlep=len(leps)
 
-        # Z combinatorial
+
+        if DEBUG: print ('Event {}:{}:{}'.format(event.run,event.luminosityBlock,event.event))
+
+
+        # Select FSR photons associated to muons passing loosse ID +SIP, to correct isolation
+        selectedFSR = filter(lambda f : muLooseId(muons[f.muonIdx]) and muons[f.muonIdx].sip3d<conf["sip3d"], fsrPhotons) 
+        combRelIsoPFFSRCorr = [0.]*nlep
+        for i,l in enumerate(leps) :
+            combRelIsoPFFSRCorr[i] = l.pfRelIso03_all
+            for f in selectedFSR :
+                dR = deltaR(l.eta, l.phi, f.eta, f.phi)
+                if dR >0.01 and dR < 0.3 :
+                    combRelIsoPFFSRCorr[i] = max(0., l.pfRelIso03_all-f.pt/l.pt)
+                    if DEBUG : print ("FSR_iso_corr,", l.pt, f.pt) 
+                    
+                                                 
+        if DEBUG: # Print lepton info
+            for i,lep in enumerate(muons):
+
+                print('mu{}  pt={:.3g} eta={:.3g} phi={:.3g} dxy={:.3g} dz={:.3g} SIP={:.3g}'.format(charge[lep.charge],
+                                                                                                     lep.pt,
+                                                                                                     lep.eta,
+                                                                                                     lep.phi,
+                                                                                                     abs(lep.dxy),
+                                                                                                     abs(lep.dz),
+                                                                                                     lep.sip3d),
+                      end="")
+                print(' GLB={} TK={} isPF={} isHighPtId={}'.format(int(lep.isGlobal),
+                                                                   int(lep.isTracker),
+                                                                   int(lep.isPFcand),
+                                                                   int(lep.highPtId>0),# 1=trk,2=global
+                                                                   ),
+                      end="")
+                print(' combRelIsoPF={:.3g} combRelIsoPFFSRCorr={:.3g}'.format(lep.pfRelIso03_all,0.), #FIXME combRelIsoPFFSRCorr[i]
+                      end="")
+                print(' isLoose={} isTight={}'.format(int(muLooseId(lep)),int(muTightId(lep))),
+                      end="")
+                if (lep.fsrPhotonIdx>=0):
+                    fsr=fsrPhotons[lep.fsrPhotonIdx]
+                    print(' FSRpt={:.3g}'.format(fsr.pt))
+                else:
+                    print()
+
+        
+
+        # Z combinatorial over selected leps + ISO for muons
         Zs = []
         for i,l1 in enumerate(leps):
+            if abs(l1.pdgId) == 13 and combRelIsoPFFSRCorr[i] >= conf["relIso"] : continue
             for j in range(i+1,nlep):
                 l2 = leps[j]
+                if abs(l2.pdgId) == 13 and combRelIsoPFFSRCorr[j] >= conf["relIso"] : continue
                 if l1.pdgId == -l2.pdgId:
                     Z_p4 = (l1.p4() + l2.p4())
                     for k in [i, j]: 
-                        if leps[k].fsrPhotonIdx>=0: # add FSR. FIXME more compact way to do the same?
+                        if abs(leps[k].pdgId)==13 and leps[k].fsrPhotonIdx>=0: # add FSR. FIXME more compact way to do the same?
                             fsr = fsrPhotons[leps[k].fsrPhotonIdx]
                             fsr_p4 = ROOT.TLorentzVector()
                             fsr_p4.SetPtEtaPhiM(fsr.pt,fsr.eta,fsr.phi,0.) 
@@ -124,15 +173,16 @@ class ZZProducer(Module):
                     if not (lepPts[3]>20. and lepPts[2]>10.) : continue 
 
                     #"Smart cut" on alternate pairings for same-sign candidates
-                    mZa, mZb = 0., 0.
-                    if leps[lIdxs[0]].pdgId == -leps[lIdxs[2]].pdgId:
-                        mZa=(leps[lIdxs[0]].p4()+leps[lIdxs[2]].p4()).M()
-                        mZb=(leps[lIdxs[1]].p4()+leps[lIdxs[3]].p4()).M()
-                    elif leps[lIdxs[0]].pdgId == -leps[lIdxs[3]].pdgId:
-                        mZa=(leps[lIdxs[0]].p4()+leps[lIdxs[3]].p4()).M()
-                        mZb=(leps[lIdxs[1]].p4()+leps[lIdxs[2]].p4()).M()
-                    if (abs(mZa-ZmassValue)>abs(mZb-ZmassValue)) : mZa, mZb = mZb, mZa
-                    if (abs(mZa-ZmassValue)<abs(Zs[Z1Idx][0]-ZmassValue)) and mZb < 12.: continue
+                    if abs(leps[lIdxs[0]].pdgId) == abs(leps[lIdxs[2]].pdgId):
+                        mZa, mZb = 0., 0.
+                        if leps[lIdxs[0]].pdgId == -leps[lIdxs[2]].pdgId:
+                            mZa=(leps[lIdxs[0]].p4()+leps[lIdxs[2]].p4()).M()
+                            mZb=(leps[lIdxs[1]].p4()+leps[lIdxs[3]].p4()).M()
+                        elif leps[lIdxs[0]].pdgId == -leps[lIdxs[3]].pdgId:
+                            mZa=(leps[lIdxs[0]].p4()+leps[lIdxs[3]].p4()).M()
+                            mZb=(leps[lIdxs[1]].p4()+leps[lIdxs[2]].p4()).M()
+                        if (abs(mZa-ZmassValue)>abs(mZb-ZmassValue)) : mZa, mZb = mZb, mZa
+                        if (abs(mZa-ZmassValue)<abs(Zs[Z1Idx][0]-ZmassValue)) and mZb < 12.: continue
                     
                     ZZ.append([Z1Idx, Z2Idx, abs(Zs[Z1Idx][0]-ZmassValue), Z2ptsum])
                     #DEBUG print ([Z1Idx, Z2Idx, abs(Zs[Z1Idx][0]-ZmassValue), Z2ptsum])
@@ -147,7 +197,7 @@ class ZZProducer(Module):
         return True
 
 
-class lepSkim(Module):
+class lepSkim(Module): #This is just an example; non actually used
     def __init__(self):
         self.writeHistFile = True
 
@@ -164,29 +214,6 @@ class lepSkim(Module):
         fsrPhotons = Collection(event, "FsrPhoton")
         eventSum = ROOT.TLorentzVector()
         
-        print ('Event {}:{}:{}'.format(event.run,event.luminosityBlock,event.event))
-        for lep in muons:
-            combRelIsoPFFSRCorr=lep.pfRelIso03_all #FIXME
-            isLoose=False
-            isTight=False
-            if lep.pt>5 and abs(lep.eta)<2.4 and abs(lep.dxy)<0.5 and abs(lep.dz)<1. and (lep.isGlobal or lep.isTracker): #FIXME: isGlobalMuon || (isTrackerMuon && numberOfMatches>0)) && muonBestTrackType!=2
-                isLoose=True 
-            if isLoose and (lep.isPFcand or (lep.highPtId>0 and lep.pt>200)) and abs(lep.sip3d)<4. : #FIXME: highPtId does not match exactly
-                isTight=True
-            print('mu{}  pt={:.3g} eta={:.3g} phi={:.3g} dxy={:.3g} dz={:.3g} SIP={:.3g}'.format(charge[lep.charge],lep.pt,lep.eta,lep.phi,abs(lep.dxy),abs(lep.dz),lep.sip3d),
-                  end="")
-            print(' GLB={} TK={} isPF={} isHighPtId={}'.format(int(lep.isGlobal),int(lep.isTracker),int(lep.isPFcand),
-                                                                    int(lep.highPtId>0)), # 1=trk,2=global
-                  end="")
-            print(' combRelIsoPF={:.3g} combRelIsoPFFSRCorr={:.3g}'.format(lep.pfRelIso03_all,combRelIsoPFFSRCorr)
-                  ,end="")
-            print(' isLoose={} isTight={}'.format(int(isLoose),int(isTight))
-                  ,end="")
-            if (lep.fsrPhotonIdx>=0):
-                fsr=fsrPhotons[lep.fsrPhotonIdx]
-                print(' FSRpt={:.3g}'.format(fsr.pt))
-            else:
-                print()
         # select events with at least 2 muons
         if len(muons) >= 2:
             for lep in muons:  # loop on muons
@@ -200,11 +227,14 @@ class lepSkim(Module):
         return True
 
 
-muonSelection     = lambda l : abs(l.eta) < 2.4 and l.pt > conf["muPt"] and l.sip3d < conf["sip3d"] and abs(l.dxy) < conf["dxy"] and abs(l.dz) < conf["dz"] #FIXME: add ID and ISO and l.miniPFRelIso_all < conf["miniRelIso"]
-electronSelection = lambda l : abs(l.eta) < 2.5 and l.pt > conf["elePt"] and l.sip3d < conf["sip3d"] and abs(l.dxy) < conf["dxy"] and abs(l.dz) < conf["dz"] #FIXME: add ID, BDT and getattr(l, conf["eleId"]) and l.miniPFRelIso_all < conf["miniRelIso"]
+muLooseId = lambda l : l.pt > conf["muPt"] and abs(l.eta) < 2.4 and abs(l.dxy) < conf["dxy"] and abs(l.dz) < conf["dz"] and (l.isGlobal or l.isTracker) #FIXME: isGlobalMuon || (isTrackerMuon && numberOfMatches>0)) && muonBestTrackType!=2
+eleLooseId = lambda l : l.pt > conf["elePt"] and abs(l.eta) < 2.5 and abs(l.dxy) < conf["dxy"] and abs(l.dz) < conf["dz"] #
 
+muTightId = lambda l : muLooseId(l) and (l.isPFcand or (l.highPtId>0 and l.pt>200.)) and abs(l.sip3d) < conf["sip3d"] #FIXME: highPtId does not match exactly our definituion.
+    
+eleTightId =  lambda l : eleLooseId(l) and abs(l.sip3d) < conf["sip3d"] #FIXME add BDT
 
-ZZSequence = [lepSkim(), ZZProducer(muSel = muonSelection, eleSel = electronSelection)]
+ZZSequence = [lepSkim(), ZZProducer(muSel = muTightId, eleSel = eleTightId)]
 
 #preselection = "Jet_pt[0] > 250"
 preselection = ("nMuon + nElectron >= 2 &&" + 
