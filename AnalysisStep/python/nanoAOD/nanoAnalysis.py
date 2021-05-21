@@ -14,7 +14,9 @@ ROOT.PyConfig.IgnoreCommandLineOptions = True
 charge={1:"+", -1:"-"}
 ZmassValue = 91.1876;
 
-DEBUG = True
+DEBUG = False
+isMC= False
+printGenHist = False
 
 conf = dict(
     muPt = 5.,
@@ -42,15 +44,48 @@ class ZZProducer(Module):
     def __init__(self, muSel=None, eleSel=None):
         self.muSel = muSel
         self.eleSel = eleSel
+        self.writeHistFile=True
       
 #        self.branches = ["Z"]
         pass
 
-    def beginJob(self):
-        pass
+    def beginJob(self,histFile=None, histDirName=None):
+        Module.beginJob(self, histFile, histDirName)
 
-    def endJob(self):
-        pass
+        #Histograms
+        self.h_ZZMass = ROOT.TH1F('ZZMass','ZZMass',130,70,200)
+        self.addObject(self.h_ZZMass)
+        
+        self.h_ptmFSR = ROOT.TH1F('muon_pt_FSR', 'muon_pt_FSR',70,0.,90.)
+        self.addObject(self.h_ptmFSR)
+        
+        #Candidate mass, with FSR
+        h4e=ROOT.TH1F('4e','4e',140,60.,200.)        
+        h4mu=ROOT.TH1F('4mu','4mu',140,60.,200.)        
+        h2e2mu=ROOT.TH1F('2e2mu','2e2mu',140,60.,200.) 
+        self.hZZ=[h4e,h4mu,h2e2mu]
+        
+        #Candidate mass with FSR, FSR events only
+        h4eF=ROOT.TH1F('4e FSR','4e FSR',140,60.,200.)        
+        h4muF=ROOT.TH1F('4mu FSR','4mu FSR',140,60.,200.)        
+        h2e2muF=ROOT.TH1F('2e2mu FSR','2e2mu FSR',140,60.,200.) 
+        self.hZZFSR=[h4eF,h4muF,h2e2muF]
+
+        #Candidate mass without FSR, FSR events only
+        title= ['no correction for FSR']
+        h4e_ncF=ROOT.TH1F('4e no correction FSR','4e no correction FSR',140,60.,200.)        
+        h4mu_ncF=ROOT.TH1F('4mu no correction FSR','4mu no correction FSR',140,60.,200.)        
+        h2e2mu_ncF=ROOT.TH1F('2e2mu no correction FSR','2e2mu no correction FSR',140,60.,200.) 
+        self.hZZ_ncF=[h4e_ncF,h4mu_ncF,h2e2mu_ncF]
+        
+        
+        for i in range (0,3):
+            self.addObject(self.hZZ[i])
+            self.addObject(self.hZZFSR[i])
+            self.addObject(self.hZZ_ncF[i])
+
+    # def endJob(self):
+    #     pass
 
 #    def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
 #        self.out = wrappedOutputTree
@@ -84,7 +119,42 @@ class ZZProducer(Module):
                 if dR >0.01 and dR < 0.3 :
                     combRelIsoPFFSRCorr[i] = max(0., l.pfRelIso03_all-f.pt/l.pt)
                     if DEBUG : print ("FSR_iso_corr,", l.pt, f.pt) 
-                    
+
+        #Fill muon pt histogram for muons w FSR 
+        for i,muon in enumerate(muons):
+            if(muon.fsrPhotonIdx>=0):
+                self.h_ptmFSR.Fill(muon.pt)
+
+        #MC Truth
+        genZZMass=-1.
+        if(isMC):
+            genpart=Collection(event,"GenPart")
+            if printGenHist : 
+                print ("---Gen:")
+                for i, gp in enumerate(genpart) :
+                    motherId=-1
+                    gmotherId=-1
+                    if gp.genPartIdxMother >= 0 : 
+                        motherId = genpart[gp.genPartIdxMother].pdgId
+                        if genpart[gp.genPartIdxMother].genPartIdxMother >= 0 :
+                            gmotherId = genpart[genpart[gp.genPartIdxMother].genPartIdxMother].pdgId
+                    print (i, gp.pdgId, gp.genPartIdxMother, gp.pt, gp.eta, motherId, gmotherId)
+        
+                               
+            GenHLeps = filter(lambda f : 
+                              (abs(f.pdgId)==11 or abs(f.pdgId)==13 or abs(f.pdgId)==15) and
+                              f.genPartIdxMother >=0 and genpart[f.genPartIdxMother].pdgId == 23 and
+                              genpart[f.genPartIdxMother].genPartIdxMother >= 0 and
+                              genpart[ genpart[f.genPartIdxMother].genPartIdxMother].pdgId == 25, genpart) #leptons generated from H->ZZ
+        
+            GenEl_acc = filter(lambda f: abs(f.pdgId)== 11 and abs(f.eta)<2.5 and f.pt > conf["elePt"],GenHLeps)
+            GenMu_acc = filter(lambda f: abs(f.pdgId)== 13 and abs(f.eta)<2.4 and f.pt > conf["muPt"],GenHLeps)
+
+            gen_p4 = ROOT.TLorentzVector()
+            for lep in GenHLeps :
+                gen_p4 += lep.p4()
+            print("Gen: {:} leps M={:.4g} In Acc: {:} e, {:} mu".format(len(GenHLeps),gen_p4.M(), len(GenEl_acc), len(GenMu_acc)), "\n")
+           
                                                  
         if DEBUG: # Print lepton info
             for i,lep in enumerate(muons):
@@ -141,7 +211,7 @@ class ZZProducer(Module):
         if len(Zs) >= 2:
             for i,aZ in enumerate(Zs):
                 for j in range(i+1, len(Zs)):
-                    # check that these Zs are mutually exclusive
+                    # check that these Zs are mutually exclusive (not sharing the same lepton) 
                     if Zs[i][2]==Zs[j][2] or Zs[i][2]==Zs[j][3] or Zs[i][3]==Zs[j][2] or Zs[i][3]==Zs[j][3]: continue
                     #FIXME:  add DeltaR>0.02 cut among all leptons (still required)?
 
@@ -155,8 +225,8 @@ class ZZProducer(Module):
                     # Z1 mass cut
                     if Zs[Z1Idx][0] <= 40. : continue
 
-                    lIdxs=[Zs[Z1Idx][2],Zs[Z1Idx][3],Zs[Z2Idx][2],Zs[Z2Idx][3]]
-
+                    lIdxs=[Zs[Z1Idx][2],Zs[Z1Idx][3],Zs[Z2Idx][2],Zs[Z2Idx][3]] # indexes of four leptons (Z1_1, Z1_2, Z2_1, Z2_2)
+                    
                     lepPts =[]
                     # QCD suppression on all OS pairs, regardelss of flavour
                     passQCD = True
@@ -185,13 +255,49 @@ class ZZProducer(Module):
                         if (abs(mZa-ZmassValue)<abs(Zs[Z1Idx][0]-ZmassValue)) and mZb < 12.: continue
                     
                     ZZ.append([Z1Idx, Z2Idx, abs(Zs[Z1Idx][0]-ZmassValue), Z2ptsum])
+                    
                     #DEBUG print ([Z1Idx, Z2Idx, abs(Zs[Z1Idx][0]-ZmassValue), Z2ptsum])
             # Choose best ZZ candidate. FIXME: implement selection by D_bkg^kin
             if len(ZZ) > 0:
                 bestZZ = min(ZZ, key = cmp_to_key(bestCandByZ1Z2))
                 bestZZ_p4=Zs[bestZZ[0]][4]+Zs[bestZZ[1]][4]
+                
+                #Candidate mass, including FSR
+                ZZmass= (Zs[Z1Idx][4]+Zs[Z2Idx][4]).M() 
+
+                #ZZ mass without adding FSR                
+                m4l_p4=ROOT.TLorentzVector()
+                for i in range (0,4):
+                    m4l_p4 += (leps[lIdxs[i]].p4())
+                ZZmass_lep=m4l_p4.M()
+                
+                #Plots for candidates with FSR
+                hasFSR=False
+                for i in range (0,4):
+                    if (abs(leps[lIdxs[i]].pdgId) == 13 and leps[lIdxs[i]].fsrPhotonIdx>=0) :
+                        hasFSR = True
+                        break #at least one muon with FSR 
+
+                if abs(leps[lIdxs[0]].pdgId * leps[lIdxs[2]].pdgId)  == 11**2: #4e
+                    self.hZZ[0].Fill(ZZmass)
+                    self.hZZ_ncF[0].Fill(ZZmass_lep) 
+
+                
+                if abs(leps[lIdxs[0]].pdgId* leps[lIdxs[2]].pdgId) == 13**2: #4mu
+                        self.hZZ[1].Fill(ZZmass)
+                        if(hasFSR):
+                            self.hZZFSR[1].Fill(ZZmass)
+                            self.hZZ_ncF[1].Fill(ZZmass_lep)
+                    
+                if abs(leps[lIdxs[0]].pdgId * leps[lIdxs[2]].pdgId) == 11 * 13: #2e2mu
+                    self.hZZ[2].Fill(ZZmass)
+                    if (hasFSR):
+                        self.hZZFSR[2].Fill(ZZmass)
+                        self.hZZ_ncF[2].Fill(ZZmass_lep)
+
                 print ('{}:{}:{}:{:.4g}:{:.3g}:{:.3g}:'.format(event.run,event.luminosityBlock,event.event,
                                                                bestZZ_p4.M(),Zs[ZZ[0][0]][0], Zs[ZZ[0][1]][0]))
+                self.h_ZZMass.Fill(bestZZ_p4.M())
 
 
         return True
@@ -234,7 +340,7 @@ muTightId = lambda l : muLooseId(l) and (l.isPFcand or (l.highPtId>0 and l.pt>20
     
 eleTightId =  lambda l : eleLooseId(l) and abs(l.sip3d) < conf["sip3d"] #FIXME add BDT
 
-ZZSequence = [lepSkim(), ZZProducer(muSel = muTightId, eleSel = eleTightId)]
+ZZSequence = [ZZProducer(muSel = muTightId, eleSel = eleTightId)]
 
 #preselection = "Jet_pt[0] > 250"
 preselection = ("nMuon + nElectron >= 2 &&" + 
