@@ -7,12 +7,19 @@ import ROOT
 ROOT.PyConfig.IgnoreCommandLineOptions = True
 
 extendedTree = True # Trees include extended FSR info (addFSRDetails = true)
-nEvents = 2e9
+nEvents = 1e9
+
+nano = True
 
 def loop():
-#    inFileName = "/eos/cms/store/group/phys_higgs/cmshzz4l/cjlst/RunIILegacy/200205_CutBased/MC_2018/ggH125/ZZ4lAnalysis.root" #official trees
-    inFileName = "/eos/user/n/namapane/HZZ/FSR/ZZ4lAnalysis.root" # private trees with extended info
-    outFileName = "fsrHisto.root"
+    #inFileName = "/eos/cms/store/group/phys_higgs/cmshzz4l/cjlst/RunIILegacy/200205_CutBased/MC_2018/ggH125/ZZ4lAnalysis.root" #official trees
+    if(nano):
+        inFileName = "/eos/user/n/namapane/HZZ/FSR/ZZ4lAnalysis-emulateNanoFSR.root" #tree similar to nanoAOD ( no e-, mu >20 GeV)
+        outFileName = "fsrHisto_nano.root"
+    else:
+        inFileName = "/eos/user/n/namapane/HZZ/FSR/ZZ4lAnalysis.root" # private trees with extended info
+        outFileName= "fsrHisto.root"
+    
 
     print ("Processing file: ",inFileName,"...")
 
@@ -28,6 +35,12 @@ def loop():
     h_FSR_ET2vsDR_true=ROOT.TH2F('fsrET2vsDR_true', 'fsrET2vsDR_true', 100, 0., 400, 100, 0., 0.5)
     h_FSR_ET2vsDR_fake=ROOT.TH2F('fsrET2vsDR_fake', 'fsrET2vsDR_fake', 100, 0., 400, 100, 0., 0.5)
 
+    #purity
+    h_fsrMuPtFake=ROOT.TH1F("fsrMuPtFake","fsrMuPtFake",200,0.,200.)
+    h_fsrMuPtTrue=ROOT.TH1F("fsrMuPtTrue","fsrMuPtTrue",200,0.,200.)
+    h_fsrElePtFake=ROOT.TH1F("fsrElePtFake","fsrElePtFake",200,0.,200.)
+    h_fsrElePtTrue=ROOT.TH1F("fsrElePtTrue","fsrElePtTrue",200,0.,200.)
+
 
     minM=40
     maxM=200
@@ -37,7 +50,7 @@ def loop():
                  ROOT.TH1F('ZZMassFSR_2e2mu', 'ZZMassFSR_2e2mu', nbins, minM, maxM)]
     h_ZZMassNoFSR=[ROOT.TH1F('ZZMassNoFSR4e', 'ZZMassNoFSR4e', nbins, minM, maxM),
                    ROOT.TH1F('ZZMassNoFSR4mu', 'ZZMassNoFSR4mu', nbins, minM, maxM),
-                   ROOT.TH1F('ZZMassNoFSR2e2mu', 'ZZMassNoFSR2e2mu', nbins, minM, maxM)]
+                   ROOT.TH1F('ZZMassNoFSR2e2mu', 'ZZMassNoFSR2e2mu', nbins, minM, maxM)] #ZZ mass without correction for FSR
     h_ZZMassFSRFake=[ROOT.TH1F('ZZMassFSRFake4e', 'ZZMassFSRFake4e', nbins, minM, maxM),
                      ROOT.TH1F('ZZMassFSRFake4mu', 'ZZMassFSRFake4mu', nbins, minM, maxM),
                      ROOT.TH1F('ZZMassFSRFake2e2mu', 'ZZMassFSRFake2e2mu', nbins, minM, maxM)]
@@ -54,7 +67,12 @@ def loop():
     nhasFake=[0]*3 #4e, 4mu, 2e2mu
     nLepFSRRecovered_self=0
     nLepFSRRecovered_other=0
-
+    #new
+    nEleFSRRecovered_self= [0,0] 
+    nMuFSRRecovered_self=[0,0]
+    nEleFSRRecovered_other= [0,0] #[true,fakeq] 
+    nMuFSRRecovered_other=[0,0] # [true, fake]
+    
     iEntry=0
     while iEntry<nEvents and tree.GetEntry(iEntry):
         iEntry+=1
@@ -80,8 +98,8 @@ def loop():
         hasFake = False
         nRecoveredLeps = [0,0] #true, false 
         if len(tree.fsrPt) > 0 :
-            hasFSR = True # FSR associated to one of the leptions             
-            nCandWFSR[finalState]+=1
+            hasFSR = True # FSR associated to one of the leptons             
+            nCandWFSR[finalState]+=1 # number of candidates with FSR
                 
 #            print (tree.EventNumber, tree.ZZMass, tree.ZZMassPreFSR, tree.Z1Flav, tree.Z2Flav, tree.LepPt[0], tree.passIsoPreFSR)
             h_ZZMassFSR[finalState].Fill(tree.ZZMass)
@@ -98,11 +116,20 @@ def loop():
                         hasFake = True
                         h_FSR_ET2vsDR_fake.Fill(ET2,tree.fsrDR[i])
                         #Plot of lepton pT:photon pT for fakes
-                        if abs(tree.LepLepId[lepIdx]) == 13 : h_fsrMuPtVsFakePt.Fill(tree.LepPt[lepIdx], f)
-                        elif abs(tree.LepLepId[lepIdx]) == 11 : h_fsrElePtVsFakePt.Fill(tree.LepPt[lepIdx], f)                
+                        if abs(tree.LepLepId[lepIdx]) == 13 : 
+                            h_fsrMuPtVsFakePt.Fill(tree.LepPt[lepIdx], f) # f is the index of the loop inside tree.fsrPt
+                            h_fsrMuPtFake.Fill(tree.LepPt[lepIdx]) # new
+                        elif abs(tree.LepLepId[lepIdx]) == 11 : 
+                            h_fsrElePtVsFakePt.Fill(tree.LepPt[lepIdx], f)     
+                            h_fsrElePtFake.Fill(tree.LepPt[lepIdx]) #new
+     
 
                     else:
                         h_FSR_ET2vsDR_true.Fill(ET2,tree.fsrDR[i])
+                        if abs(tree.LepLepId[lepIdx]) == 13 :
+                            h_fsrMuPtTrue.Fill(tree.LepPt[lepIdx])#new
+                        else:
+                            h_fsrElePtTrue.Fill(tree.LepPt[lepIdx])#new
 
             #Check how often a lepton is recovered by its own or another photon
             for j in range(0,4):
@@ -110,10 +137,35 @@ def loop():
                     ownFSR = False;
                     for f in (tree.fsrLept):                        
                         if j == f-1 :
-                            nLepFSRRecovered_self+=1
-                            ownFSR = True
-                    if not ownFSR : nLepFSRRecovered_other+=1
+                            nLepFSRRecovered_self+=1 
+                            if abs(tree.LepLepId[j]) == 11: #new
+                                if hasFake:
+                                    nEleFSRRecovered_self[1] += 1
+                                else:
+                                    nEleFSRRecovered_self[0] +=1
 
+                            elif abs(tree.LepLepId[j]) == 13:
+                                if hasFake:
+                                    nMuFSRRecovered_self[1] += 1
+                                else:
+                                    nMuFSRRecovered_self[0] +=1 
+                            ownFSR = True
+
+                    if not ownFSR : 
+                        nLepFSRRecovered_other+=1
+                        if abs(tree.LepLepId[j]) == 11: 
+                                if hasFake:
+                                    nEleFSRRecovered_other[1] += 1
+                                else:
+                                    nEleFSRRecovered_other[0] +=1
+                        elif abs(tree.LepLepId[j]) == 13:
+                                if hasFake:
+                                    nMuFSRRecovered_other[1] += 1
+                                else:
+                                    nMuFSRRecovered_other[0] +=1 
+                    
+
+            
             if hasFake :
                 h_ZZMassFSRFake[finalState].Fill(tree.ZZMass)
                 nhasFake[finalState]+=1
@@ -122,19 +174,20 @@ def loop():
 
 
 
-        if pass_selection and not tree.passIsoPreFSR :
+
+        if pass_selection and not tree.passIsoPreFSR : # not passIsoPreFSR = code will be executed when Isolation failed without FSR
             nIsoRecovered[finalState]+=1
             if not hasFSR : print (" FSR-ISO-RECOVER") # do we recover candidates due to iso correction of FSR from (eg loose) leptons that are not part of the candidate? Apparently, not.        
             if hasFake : nIsoRecovered_wFake[finalState]+=1
 
         # Consistency checks
-        if hasFSR != (abs(tree.ZZMassPreFSR-tree.ZZMass) > 1e-4) : 
+        if hasFSR != (abs(tree.ZZMassPreFSR-tree.ZZMass) > 1e-4) : # strange if there's FSR and mass difference is small. Check this situation
             print ("Inconsistent FSR: ", hasFSR, tree.ZZMassPreFSR, tree.ZZMass)
 
         if (extendedTree) : 
             chkPassIsoPreFSR = True
             for i in range(0,4):
-                chkPassIsoPreFSR = chkPassIsoPreFSR and bool(tree.LepIsoPreFSR[i])
+                chkPassIsoPreFSR = chkPassIsoPreFSR and bool(tree.LepIsoPreFSR[i]) 
             if chkPassIsoPreFSR != tree.passIsoPreFSR :
                 print ("Error passIsoPreFSR: ", chkPassIsoPreFSR, tree.passIsoPreFSR)
 
@@ -147,7 +200,14 @@ def loop():
     print ("nRecovered_fake = {:} [4e, 4mu, 2e2mu]: {:} [{:.1f}% {:.1f}% {:.1f}%]".format(sum(nIsoRecovered_wFake), nIsoRecovered_wFake, 100.*nIsoRecovered_wFake[0]/nCandSel[0],100.*nIsoRecovered_wFake[1]/nCandSel[1],100.*nIsoRecovered_wFake[2]/nCandSel[2]))
     print ("Lepton ISO recovered by own photon = ", nLepFSRRecovered_self) #FIXME true/fake
     print ("Lepton ISO recovered by other phot = ", nLepFSRRecovered_other)
+    print()
 
-
-if __name__ == "__main__" :
+    print ("Muon ISO recovered by own photon_true = {:}".format(nMuFSRRecovered_self[0]))
+    print ("Muon ISO recovered by own photon_fake = ",nMuFSRRecovered_self[1])
+    print("Muon ISO recovered by other photon_true = ", nMuFSRRecovered_other[0])
+    print("Muon ISO recovered by other photon_fake = ", nMuFSRRecovered_other[1])
+    #Just to check
+    print("Ele ISO recovered other photon_true = ", nEleFSRRecovered_other[0])
+    print("Ele ISO recovered other photon_fake = ", nEleFSRRecovered_other[1])
+if __name__ == "__main__" : #Check me 
     loop()
