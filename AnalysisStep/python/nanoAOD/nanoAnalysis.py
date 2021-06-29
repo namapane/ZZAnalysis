@@ -26,6 +26,7 @@ DEBUG = False
 DUMP = True          # dump candidates
 isMC = False         # analyze for gen info
 printGenHist = False # print MC history
+runMELA = True
 
 conf = dict(
     muPt = 5.,
@@ -61,8 +62,9 @@ def bestCandByDbkgKin(a,b):
 class ZZProducer(Module):
     def __init__(self):
         self.writeHistFile=True
-        self.mela = Mela(13, 125, TVar.ERROR)
-        self.mela.setCandidateDecayMode(TVar.CandidateDecay_ZZ)      
+        if runMELA :
+            self.mela = Mela(13, 125, TVar.ERROR)
+            self.mela.setCandidateDecayMode(TVar.CandidateDecay_ZZ)      
 
     def beginJob(self,histFile=None, histDirName=None):
         Module.beginJob(self, histFile, histDirName)
@@ -292,20 +294,23 @@ class ZZProducer(Module):
                         if (abs(mZa-ZmassValue)>abs(mZb-ZmassValue)) : mZa, mZb = mZb, mZa
                         if (abs(mZa-ZmassValue)<abs(Z1[0]-ZmassValue)) and mZb < 12.: continue
 
-                    #Compute D_bkg^kin                    
-                    daughters = SimpleParticleCollection_t()
-                    for ilep in range (0,4):
-                        lep = leps[lIdxs[ilep]]
-                        lep_p4 = lep.p4()
-                        daughters.push_back(SimpleParticle_t(lep.pdgId, lep.p4())) # + fsrP4s[ilep]))
-#                        print(daughters[ilep].first, daughters[ilep].second.Pt())
-                    self.mela.setInputEvent(daughters, 0, 0)
-                    self.mela.setProcess(TVar.HSMHiggs, TVar.JHUGen, TVar.ZZGG)
-                    p_GG_SIG_ghg2_1_ghz1_1_JHUGen = self.mela.computeP(False)
-                    self.mela.setProcess(TVar.bkgZZ, TVar.MCFM, TVar.ZZQQB)
-                    p_QQB_BKG_MCFM = self.mela.computeP(False)
+                    #Compute D_bkg^kin
+                    p_GG_SIG_ghg2_1_ghz1_1_JHUGen = 0.
+                    p_QQB_BKG_MCFM = 1.
+                    if runMELA:
+                        daughters = SimpleParticleCollection_t()
+                        for ilep in range (0,4):
+                            lep = leps[lIdxs[ilep]]
+                            lep_p4 = lep.p4()
+                            daughters.push_back(SimpleParticle_t(lep.pdgId, lep.p4() + fsrP4s[ilep]))                            
+                            #print("MELA ", daughters[ilep].first, daughters[ilep].second.Pt(), daughters[ilep].second.Eta(), daughters[ilep].second.Phi(),daughters[ilep].second.M())
+                        self.mela.setInputEvent(daughters, 0, 0, 0)
+                        self.mela.setProcess(TVar.HSMHiggs, TVar.JHUGen, TVar.ZZGG)
+                        p_GG_SIG_ghg2_1_ghz1_1_JHUGen = self.mela.computeP(True)
+                        self.mela.setProcess(TVar.bkgZZ, TVar.MCFM, TVar.ZZQQB)
+                        p_QQB_BKG_MCFM = self.mela.computeP(True)
+                        self.mela.resetInputEvent()
                     dBkgKin = p_GG_SIG_ghg2_1_ghz1_1_JHUGen/(p_GG_SIG_ghg2_1_ghz1_1_JHUGen+p_QQB_BKG_MCFM)
-                    self.mela.resetInputEvent()
 
                     if DEBUG: print("ZZ=", (Z1[4]+Z2[4]).M(), p_GG_SIG_ghg2_1_ghz1_1_JHUGen, p_QQB_BKG_MCFM, dBkgKin)
 
