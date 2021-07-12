@@ -28,8 +28,8 @@ n=TNtuple("test", "test", "run:ls:event:pT:eta:phi:gRelIso:SCVetoTight:lID:lTigh
 n.ReadFile("FSR_tree2.txt");
 
 
-p_ele = n.Draw("pT","isTight&&abs(lID)==11&&pTGen>0")/float(n.Draw("pT","isTight&&abs(lID)==11"))
-p_mu  = n.Draw("pT","isTight&&abs(lID)==13&&pTGen>0")/float(n.Draw("pT","isTight&&abs(lID)==13"))
+p_ele = n.Draw("pT","isTight&&lTight&&abs(lID)==11&&pTGen>0")/float(n.Draw("pT","isTight&&lTight&&abs(lID)==11"))
+p_mu  = n.Draw("pT","isTight&&lTight&&abs(lID)==13&&pTGen>0")/float(n.Draw("pT","isTight&&lTight&&abs(lID)==13"))
 
 print("purity e/mu: ", p_ele, p_mu)
 

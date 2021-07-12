@@ -37,8 +37,8 @@ struct FSRCandidate {
   bool SCVetoTight;
   double dRMinEle; // distance to closest ele
   double dRMinMu;  // distance to closest mu
-  const reco::Candidate* closestEle = nullptr;
-  const reco::Candidate* closestMu = nullptr;
+  const pat::Electron* closestEle = nullptr;
+  const pat::Muon * closestMu = nullptr;
   const reco::Candidate* closestLep = nullptr; // closest of the above
   int igen; // index of matched gen FSR photon (if any)
   
@@ -48,6 +48,10 @@ struct FSRCandidate {
   int lepId() {return closestLep->pdgId();}
   bool isLoose() {return gRelIso<2   && dRET2()<0.05;}  // nanoAOD selection
   bool isTight() {return gRelIso<1.8 && dRET2()<0.012;} // H4l selection
+  bool isLepTight() {
+    if (dRMinEle<dRMinMu) return closestEle->userFloat("isGood");
+    else return closestMu->userFloat("isGood");
+  }  
 
   // w.r.t. closest mu
   bool isLoose_mu() {return closestMu!=nullptr && gRelIso<2   && dRMinMu/g->pt()/g->pt()<0.05;}
@@ -186,8 +190,8 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
     //------------------------------------------------------
     double dRMinEle(10e9);
     double dRMinMu(10e9);
-    const reco::Candidate* closestMu = 0;
-    const reco::Candidate* closestEle = 0;
+    const pat::Electron* closestEle = 0;
+    const pat::Muon* closestMu = 0;
     
     // Loop over pat::Muon
     for (unsigned int j = 0; j< muonHandle->size(); ++j){
@@ -291,6 +295,7 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
 	 << gc.gRelIso << " " // photon iso
 	 << gc.SCVetoTight << " " // pass tighter SC veto 
 	 << lID << " " // this is the ID of the reco l the photon is associated to 
+	 << gc.isLepTight() << " " 
 	 << gc.dR() << " "  // DR-reco FSR vs reco lep
 	 << gc.dRET2() << " "  // DR-reco FSR vs reco lep      
 	 << gc.isLoose() << " "
