@@ -9,7 +9,7 @@ ROOT.PyConfig.IgnoreCommandLineOptions = True
 extendedTree = True # Trees include extended FSR info (addFSRDetails = true)
 nEvents = 1e9
 
-nano = True
+nano = False
 
 def loop():
     #inFileName = "/eos/cms/store/group/phys_higgs/cmshzz4l/cjlst/RunIILegacy/200205_CutBased/MC_2018/ggH125/ZZ4lAnalysis.root" #official trees
@@ -28,8 +28,8 @@ def loop():
     of=ROOT.TFile(outFileName,"recreate")
     
 
-    h_fsrMuPt=ROOT.TH1F('fsrMuPt', 'fsrMuPt', 200, 0., 200.)
-    h_fsrElePt=ROOT.TH1F('fsrElePt', 'fsrElePt', 200, 0., 200.)
+    h_fsrMuPt=ROOT.TH1F('fsrMuPt', 'fsrMuPt', 40, 0., 200.)
+    h_fsrElePt=ROOT.TH1F('fsrElePt', 'fsrElePt', 40, 0., 200.)
     h_fsrMuPtVsFakePt=ROOT.TH2F('fsrMuPtVsFakePt', 'fsrMuPtVsFakePt', 200, 0., 200., 100, 0., 100.)
     h_fsrElePtVsFakePt=ROOT.TH2F('fsrElePtVsFakePt', 'fsrElePtVsFakePt', 200, 0., 200., 100, 0., 100.)
     h_FSR_ET2vsDR_true=ROOT.TH2F('fsrET2vsDR_true', 'fsrET2vsDR_true', 100, 0., 400, 100, 0., 0.5)
@@ -37,9 +37,13 @@ def loop():
 
     #purity
     h_fsrMuPtFake=ROOT.TH1F("fsrMuPtFake","fsrMuPtFake",200,0.,200.)
-    h_fsrMuPtTrue=ROOT.TH1F("fsrMuPtTrue","fsrMuPtTrue",200,0.,200.)
+    h_fsrMuPtTrue=ROOT.TH1F("fsrMuPtTrue","fsrMuPtTrue",40,0.,200.)
     h_fsrElePtFake=ROOT.TH1F("fsrElePtFake","fsrElePtFake",200,0.,200.)
-    h_fsrElePtTrue=ROOT.TH1F("fsrElePtTrue","fsrElePtTrue",200,0.,200.)
+    h_fsrElePtTrue=ROOT.TH1F("fsrElePtTrue","fsrElePtTrue",40,0.,200.)
+    
+    #purity vs eta
+    h_MufsrEta= ROOT.TH1F("MufsrEta","MufsrEta",25,0.,2.5)
+    h_MufsrEtaTrue= ROOT.TH1F("MufsrEtaTrue","MufsrEtaTrue",25,0.,2.5)
 
 
     minM=40
@@ -107,7 +111,9 @@ def loop():
             for i,f in enumerate(tree.fsrPt):                
                 lepIdx=tree.fsrLept[i]-1
 #                print (" ",tree.fsrPt[i], tree.fsrLept[i], tree.LepPt[lepIdx], tree.LepLepId[lepIdx])
-                if abs(tree.LepLepId[lepIdx]) == 13 : h_fsrMuPt.Fill(tree.LepPt[lepIdx])
+                if abs(tree.LepLepId[lepIdx]) == 13 : 
+                    h_fsrMuPt.Fill(tree.LepPt[lepIdx])
+                    h_MufsrEta.Fill(abs(tree.fsrEta[i])) #eta
                 elif abs(tree.LepLepId[lepIdx]) == 11 : h_fsrElePt.Fill(tree.LepPt[lepIdx])                
                 if (extendedTree) :
                     ET2=tree.fsrPt[i]*tree.fsrPt[i]
@@ -117,19 +123,20 @@ def loop():
                         h_FSR_ET2vsDR_fake.Fill(ET2,tree.fsrDR[i])
                         #Plot of lepton pT:photon pT for fakes
                         if abs(tree.LepLepId[lepIdx]) == 13 : 
-                            h_fsrMuPtVsFakePt.Fill(tree.LepPt[lepIdx], f) # f is the index of the loop inside tree.fsrPt
-                            h_fsrMuPtFake.Fill(tree.LepPt[lepIdx]) # new
+                            h_fsrMuPtVsFakePt.Fill(tree.LepPt[lepIdx], f)
+                            h_fsrMuPtFake.Fill(tree.LepPt[lepIdx]) 
                         elif abs(tree.LepLepId[lepIdx]) == 11 : 
                             h_fsrElePtVsFakePt.Fill(tree.LepPt[lepIdx], f)     
-                            h_fsrElePtFake.Fill(tree.LepPt[lepIdx]) #new
+                            h_fsrElePtFake.Fill(tree.LepPt[lepIdx])
      
 
                     else:
                         h_FSR_ET2vsDR_true.Fill(ET2,tree.fsrDR[i])
                         if abs(tree.LepLepId[lepIdx]) == 13 :
-                            h_fsrMuPtTrue.Fill(tree.LepPt[lepIdx])#new
+                            h_fsrMuPtTrue.Fill(tree.LepPt[lepIdx])
+                            h_MufsrEtaTrue.Fill(abs(tree.fsrEta[i]))
                         else:
-                            h_fsrElePtTrue.Fill(tree.LepPt[lepIdx])#new
+                            h_fsrElePtTrue.Fill(tree.LepPt[lepIdx])
 
             #Check how often a lepton is recovered by its own or another photon
             for j in range(0,4):

@@ -73,14 +73,21 @@ purity = 1.-ifile.fsrET2vsDR_fake.GetEntries()/(ifile.fsrET2vsDR_fake.GetEntries
 print("FSR purity: = {:.3g}".format(purity))
 
 
-h_purityMu = TH1F("FSR purity muon","FSR purity muon",200,0.,200.)
+h_purityMu = TH1F("FSR purity muon","FSR purity muon",40,0.,200.)
 c5=TCanvas ("FSRPurity_muon","FSRPurity_muon",800,800)
 h_purityMu.Divide(ifile.fsrMuPtTrue,ifile.fsrMuPt,1.,1.,"b")
 h_purityMu.SetLineWidth(1)
 h_purityMu.Draw("PE")
 
-h_purityEle = TH1F("FSR purity ele","FSR purity ele",200,0.,200.)
+h_purityEle = TH1F("FSR purity ele","FSR purity ele",40,0.,200.)
 c6=TCanvas ("FSRPurity_ele","FSRPurity_ele",800,800)
 h_purityEle.Divide(ifile.fsrElePtTrue,ifile.fsrElePt,1.,1.,"b")
 h_purityEle.SetLineWidth(1)
 h_purityEle.Draw("PE")
+
+h_purMufsrEta = TH1F("FSR Eta purity muon","FSR Eta purity muon",25,0.,2.5)
+c7=TCanvas ("FSR Eta purity muon","FSR Eta purity muon",800,800)
+h_purMufsrEta.Divide(ifile.MufsrEtaTrue,ifile.MufsrEta,1.,1.,"b")
+h_purMufsrEta.SetLineWidth(1)
+h_purMufsrEta.Draw("PE")
+h_purMufsrEta.GetXaxis().SetTitle("#eta")

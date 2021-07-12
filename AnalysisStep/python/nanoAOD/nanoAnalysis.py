@@ -58,6 +58,25 @@ def bestCandByDbkgKin(a,b):
     #FIXME to be implemented
     return 0
 
+# Match Rec FSR with Gen FSR 
+def fsrMatch (rec, gen) :
+    FSRTrue = False
+    for i,ph in enumerate (gen):
+        if deltaR (ph.eta, ph.phi, rec.eta, rec.phi) <0.3 and ph.pt>2.:
+            FSRTrue= True
+        else:
+            continue
+    return FSRTrue
+
+#Find particle's mother
+def Mother (part, gen) :
+    idxMother= part.genPartIdxMother
+    while idxMother>=0 and gen[idxMother].pdgId == part.pdgId:
+        idxMother = gen[idxMother].genPartIdxMother
+    idMother=0
+    if idxMother >=0 : idMother = gen[idxMother].pdgId
+    return idxMother, idMother
+
 
 class ZZProducer(Module):
     def __init__(self):
@@ -129,6 +148,8 @@ class ZZProducer(Module):
         if DEBUG or DUMP: print ('Event '+eventId)
 
         ### MC Truth
+        genZZMass=-1.
+        GenFSR = []
         if(isMC):
             genZZMass=-1.
             genpart=Collection(event,"GenPart")
@@ -141,7 +162,19 @@ class ZZProducer(Module):
                         motherId = genpart[gp.genPartIdxMother].pdgId
                         if genpart[gp.genPartIdxMother].genPartIdxMother >= 0 :
                             gmotherId = genpart[genpart[gp.genPartIdxMother].genPartIdxMother].pdgId
-                    print (i, gp.pdgId, gp.genPartIdxMother, gp.pt, gp.eta, motherId, gmotherId)                                       
+                    print (i, gp.pdgId, gp.genPartIdxMother, gp.pt, gp.eta, motherId, Mother(gp, genpart), gmotherId)
+        
+              
+            for i, gp in enumerate(genpart) :
+                midx = gp.genPartIdxMother
+                if gp.pdgId==22 and gp.pt > 1. and midx >= 0 :
+                    mid = genpart[midx].pdgId
+                    if abs(mid) == 11 or abs(mid) == 13 :
+                        mmidx, mmid = Mother(genpart[midx], genpart) # possibly skip intermediate rows
+                        if mmid == 23 :
+                            GenFSR.append(gp)
+                   
+            
             GenHLeps = filter(lambda f : 
                               (abs(f.pdgId)==11 or abs(f.pdgId)==13 or abs(f.pdgId)==15) and
                               f.genPartIdxMother >=0 and genpart[f.genPartIdxMother].pdgId == 23 and
@@ -152,7 +185,8 @@ class ZZProducer(Module):
             gen_p4 = ROOT.TLorentzVector()
             for lep in GenHLeps :
                 gen_p4 += lep.p4()
-            print("Gen: {:} leps M={:.4g} In Acc: {:} e, {:} mu".format(len(GenHLeps),gen_p4.M(), len(GenEl_acc), len(GenMu_acc)), "\n")
+            print("Gen: {:} leps M={:.4g} In Acc: {:} e, {:} mu,  {:} FSR".format(len(GenHLeps),gen_p4.M(), 
+                                                                                                     len(GenEl_acc), len(GenMu_acc), len (GenFSR)), "\n")
            
 
         # Select Tight leptons
@@ -200,7 +234,9 @@ class ZZProducer(Module):
                       end="")
                 if (lep.fsrPhotonIdx>=0):
                     fsr=fsrPhotons[lep.fsrPhotonIdx]
-                    print(' FSR: pt={:.3g} dRET2={:.3g} Iso={:.3g}, {}'.format(fsr.pt, fsr.dROverEt2, fsr.relIso03, int(fsrSel(fsr))))
+
+                    print(' FSR: pt={:.3g} eta={:.3g}, dREt2={:.3g}, Iso={:.3g}, true={}'.format(fsr.pt, fsr.eta, fsr.dROverEt2, fsr.relIso03, int(fsrMatch(fsr,GenFSR))))
+                        
                 else:
                     print()
 
