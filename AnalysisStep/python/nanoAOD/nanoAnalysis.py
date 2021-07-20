@@ -24,9 +24,9 @@ ZmassValue = 91.1876;
 
 DEBUG = False
 DUMP = True          # dump candidates
-isMC = False         # analyze for gen info
-printGenHist = False # print MC history
-runMELA = True
+isMC = True         # analyze for gen info
+printGenHist = True # print MC history
+runMELA = False
 
 conf = dict(
     muPt = 5.,
@@ -405,8 +405,13 @@ preselection = ("nMuon + nElectron >= 2 &&" +
                 "Sum$(Electron_pt > {elePt})" +
                 ">= 2").format(**conf)
 
-store = "/eos/cms/" #if not at CERN, add "root://cms-xrd-global.cern.ch/"
-files = [store+"/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root"]
+localstore = "/eos/cms/"
+aaastore   = "root://cms-xrd-global.cern.ch/"
+# ggH125
+#files = [localstore+"/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root"]
 
-p = PostProcessor(".", files, cut=preselection, branchsel=None, modules=ZZSequence, noOut=True, histFileName="histOut.root", histDirName="plots", maxEntries=2000)
+# ZH125
+files = [aaastore+"/store/mc/RunIIAutumn18NanoAODv7/ZH_HToZZ_4LFilter_M125_13TeV_powheg2-minlo-HZJ_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/60000/C670B342-C02E-1848-AE6A-0B5550E3DFE3.root"]
+
+p = PostProcessor(".", files, cut=preselection, branchsel=None, modules=ZZSequence, noOut=True, histFileName="histOut.root", histDirName="plots", maxEntries=20)
 p.run()
