@@ -51,7 +51,12 @@ struct FSRCandidate {
   bool isLepTight() {
     if (dRMinEle<dRMinMu) return closestEle->userFloat("isGood");
     else return closestMu->userFloat("isGood");
-  }  
+  }
+  const reco::GenParticle* genLepton() {
+    if (dRMinEle<dRMinMu) return closestEle->genLepton();
+    else return closestMu->genLepton();
+  }
+  
 
   // w.r.t. closest mu
   bool isLoose_mu() {return closestMu!=nullptr && gRelIso<2   && dRMinMu/g->pt()/g->pt()<0.05;}
@@ -120,6 +125,9 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
   edm::Handle<GenEventInfoProduct> genInfo;
   iEvent.getByToken(genInfoToken, genInfo);
   MCHistoryTools mch(iEvent, "", genParticles, genInfo);
+
+  int genFinalState = mch.genFinalState();
+
   vector<const reco::Candidate *> genFSR = mch.genFSR();
   vector<int> nRecoFSRMatchedToGen(genFSR.size(),0);
 
@@ -198,7 +206,12 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
       const pat::Muon* m = &((*muonHandle)[j]);
       if (! m->userFloat("isSIP")) continue;
       double dR = ROOT::Math::VectorUtil::DeltaR(m->momentum(),g->momentum());
-      if(debug) cout << "muon pt = " << m->pt() << " photon pt = " << g->pt() << " dR = " << dR << endl;
+      if(debug) cout << "muon pt = " << m->pt() << " photon pt = " << g->pt() << " dR = " << dR 
+		     << " " << m->simType()
+		     << " " << m->simExtType()
+		     << " " << m->simFlavour()
+		     << " " << m->simHeaviestMotherFlavour()
+		     << endl;
       if (dR>=0.5) continue;
       if (dR<dRMinMu) {
 	dRMinMu = dR;
@@ -213,7 +226,10 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
       const pat::Electron* e = &((*electronHandle)[j]);
       if (! e->userFloat("isSIP")) continue;
       double dR = ROOT::Math::VectorUtil::DeltaR(e->momentum(),g->momentum());
-      if(debug) cout << "ele pt = " << e->pt() << " photon pt = " << g->pt() << " dR = " << dR << endl;
+      
+      if(debug) cout << "ele pt = " << e->pt() << " photon pt = " << g->pt() << " dR = " << dR
+		     << " " << (e->genLepton()==nullptr?0:e->genLepton()->pdgId())
+		     << endl;
       if (dR>=0.5) continue;
       if (dR<dRMinEle) {
 	dRMinEle = dR;
@@ -250,7 +266,8 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
   // Loop on all photon candidates to print info
   for (size_t iPhoton=0; iPhoton<photons.size(); ++iPhoton) {	
     FSRCandidate& gc = photons[iPhoton];
-      
+    if (!gc.isLoose()) continue;
+
     int lID = gc.closestLep->pdgId(); // ID of the closest lepton
 
     // Are there other photons associated to the same lepton?
@@ -271,9 +288,8 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
     bool mu_ele_overlap = false;
     if (gc.closestMu!=0 && gc.closestEle!=0 && gc.isLoose_mu() && gc.isLoose_ele()) { // potential overlap if FSR are collected by mu and ele independently
       mu_ele_overlap = true;
-      cout << "OVERLAP" << endl;
     }
-      
+
     double pTGen = -1.;
     double etaGen = 0;
     double phiGen = 0.;
@@ -283,7 +299,9 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
       phiGen = genFSR[gc.igen]->phi();
     }
 
-    if (!gc.isLoose()) continue;
+    const reco::GenParticle* gp =  gc.genLepton();
+    int lParentType = mch.getParentCode(gp);
+
 
     cout << "FSR:" 
 	 << iEvent.id().run() << ":"
@@ -312,6 +330,8 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
       // 	 << Nvtx << " "
       // 	 << NObsInt << " "
       // 	 << NTrueInt << " "
+	 << genFinalState << " " 
+	 << lParentType
 	 << endl; 
   }
     
