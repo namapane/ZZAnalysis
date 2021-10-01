@@ -1,5 +1,5 @@
 
-# Plot files produced with FSRtest.py
+# Plot files produced with FSRAnalysis.py
 #
 from __future__ import print_function
 import math

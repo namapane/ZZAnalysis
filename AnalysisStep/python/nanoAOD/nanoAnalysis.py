@@ -24,9 +24,10 @@ ZmassValue = 91.1876;
 
 DEBUG = False
 DUMP = True          # dump candidates
-isMC = True         # analyze for gen info
-printGenHist = True # print MC history
+isMC = False         # analyze for gen info
+printGenHist = False # print MC history
 runMELA = False
+bestCandByMELA = False # requires also runMELA=True
 
 conf = dict(
     muPt = 5.,
@@ -39,24 +40,29 @@ conf = dict(
     fsr_Iso = 1.8
 )
 
-def passEleBDT(pt, fSCeta, BDT) :
+def passEleBDT(pt, SCeta, BDT) :
+    fSCeta = abs(SCeta)
     # FIXME: Using 2017 WP for ElectronMVAEstimatorRun2Fall17IsoV2Values. Other BDTs are not yet available
     return (pt<=10. and ((fSCeta<0.8 and BDT > 0.85216885148) or (fSCeta>=0.8 and fSCeta<1.479 and BDT >  0.82684550976) or (fSCeta>=1.479 and BDT >  0.86937630022))) or (pt>10. and  ((fSCeta<0.8 and BDT >  0.98248928759) or (fSCeta>=0.8 and fSCeta<1.479 and BDT >  0.96919224579) or (fSCeta>=1.479 and BDT >  0.79349796445)))
 
 
 
 ### Comparators to search for the best candidate in the event 
-def bestCandByZ1Z2(a,b):
-    if abs(a[2]-b[2]) < 1e-4: # same Z1: choose the candidate with highest-pT Z2 leptons
-        if a[3] > b[3] : return 1
-        else: return -1
-    else:
-        if a[2] < b[2]: return 1 # else choose based on Z1 masses
-        else: return -1
+def bestCandByZ1Z2(a,b): # a=abs(MZ1-MZ); b-sum(PT) 
+    if abs(a[2]-b[2]) < 1e-4 : # same Z1: choose the candidate with highest-pT Z2 leptons
+        if a[3] > b[3] : return -1        
+        else :
+            return 1
+    else :
+        if a[2] < b[2]: return -1 # else choose based on Z1 masses
+        else :
+            return 1
 
 def bestCandByDbkgKin(a,b):
-    #FIXME to be implemented
-    return 0
+    if abs((a[0][4]+a[1][4]).M() - (b[0][4]+b[1][4]).M())<1e-4 and a[0][7]*a[1][7]==b[0][7]*b[1][7]: # Equivalent: same masss (tolerance 100 keV) and same FS -> same leptons and FSR
+        return bestCandByZ1Z2(a,b)
+    if a[4] > b [4] : return 1 # choose by best dbkgkin
+    else: return -1    
 
 # Match Rec FSR with Gen FSR 
 def fsrMatch (rec, gen) :
@@ -137,7 +143,7 @@ class ZZProducer(Module):
             dR = deltaR(l.eta, l.phi, f.eta, f.phi)
             if dR >0.01 and dR < 0.3 :
                 combRelIsoPFFSRCorr = max(0., l.pfRelIso03_all-f.pt/l.pt)
-                if DEBUG : print ("FSR_iso_corr,", l.pt, f.pt)
+#                if DEBUG : print ("FSR_iso_corr,", l.pt, f.pt)
         return combRelIsoPFFSRCorr
 
 
@@ -146,6 +152,7 @@ class ZZProducer(Module):
 
         eventId='{}:{}:{}'.format(event.run,event.luminosityBlock,event.event)
         if DEBUG or DUMP: print ('Event '+eventId)
+        
 
         ### MC Truth
         genZZMass=-1.
@@ -193,6 +200,23 @@ class ZZProducer(Module):
             print("Gen: {:} leps M={:.4g} In Acc: {:} e, {:} mu,  {:} FSR".format(len(GenHLeps),gen_p4.M(), 
                                                                                                      len(GenEl_acc), len(GenMu_acc), len (GenFSR)), "\n")
            
+        ### good PV filter
+        if event.PV_npvsGood == 0 : return False
+
+
+        ### Trigger (FIXME: this is for the 2018 menu!)
+        passSingleEle = event.HLT_Ele32_WPTight_Gsf
+        passSingleMu = event.HLT_IsoMu24
+        passDiEle = event.HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL or event.HLT_DoubleEle25_CaloIdL_MW
+        passDiMu = event.HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8
+        passMuEle = event.HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL or event.HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ or event.HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ or event.HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ or event.HLT_DiMu9_Ele9_CaloIdL_TrackIdL_DZ or event.HLT_Mu8_DiEle12_CaloIdL_TrackIdL_DZ
+        passTriEle = False
+        passTriMu = event.HLT_TripleMu_10_5_5_DZ or event.HLT_TripleMu_12_10_5
+
+        passTrigger = passDiEle or passDiMu or passMuEle or passTriEle or passTriMu or passSingleEle or passSingleMu # FIXME: for MC; for data must be done by PD
+
+        if not passTrigger : return False
+
 
         # Select Tight leptons
         electrons = Collection(event, "Electron")
@@ -219,13 +243,14 @@ class ZZProducer(Module):
             for i,lep in enumerate(muons):
 #                if not muLooseId(lep) and not DEBUG : continue # Print only leptons passing loose ID
                 print(eventId+" ", end="")
-                print('#{} mu{} pt={:.3g} eta={:.3g} phi={:.3g} dxy={:.3g} dz={:.3g} SIP={:.3g}'.format(i, charge[lep.charge],
+                print('#{} mu{} pt={:.3g} eta={:.3g} phi={:.3g} dxy={:.3g} dz={:.3g} SIP={:.3g} cmask={}'.format(i, charge[lep.charge],
                                                                                                         lep.pt,
                                                                                                         lep.eta,
                                                                                                         lep.phi,
                                                                                                         abs(lep.dxy),
                                                                                                         abs(lep.dz),
-                                                                                                        lep.sip3d),
+                                                                                                        lep.sip3d,
+                                                                                                        lep.cleanmask),
                       end="")
                 print(' GLB={} TK={} PF={}'.format(int(lep.isGlobal),
                                                     int(lep.isTracker),
@@ -248,8 +273,8 @@ class ZZProducer(Module):
             for i,lep in enumerate(electrons):
 #                if not eleLooseId(lep) and not DEBUG : continue # Print only leptons passing loose ID
                 print(eventId+" ", end="")
-                print('#{} e{}  pt={:.3g} eta={:.3g} phi={:.3g} dxy={:.3g} dz={:.3g} SIP={:.3g}'.format(i, charge[lep.charge],
-                                                                                                        lep.pt,
+                print('#{} e{}  pt={:.3g} ptcorr={:.3g} eta={:.3g} phi={:.3g} dxy={:.3g} dz={:.3g} SIP={:.3g}'.format(i, charge[lep.charge],
+                                                                                                        lep.pt,lep.eCorr,
                                                                                                         lep.eta,
                                                                                                         lep.phi,
                                                                                                         abs(lep.dxy),
@@ -279,9 +304,9 @@ class ZZProducer(Module):
                                 myfsr[k] = fsr_p4
                                 Z_p4 += fsr_p4
                     zmass = Z_p4.M()
-                    if DEBUG: print('Z={:.4g} pt1={:.3g} pt2={:.3g}'.format(zmass, l1.pt, l2.pt))
+                    if DUMP: print('Z={:.4g} pt1={:.3g} pt2={:.3g}'.format(zmass, l1.pt, l2.pt))
                     if (zmass>12. and zmass<120.):
-                        Zs.append([zmass, l1.pt+l2.pt, i, j, Z_p4, myfsr[i], myfsr[j]]) # mass_with_FSR, sumpt, l_i, l_j, p4, i_FSRp4, j_FSRp4
+                        Zs.append([zmass, l1.pt+l2.pt, i, j, Z_p4, myfsr[i], myfsr[j], l1.pdgId*l2.pdgId]) # mass_with_FSR, sumpt, l_i, l_j, p4, i_FSRp4, j_FSRp4, FS
 
         # Build all ZZ combinations passing the ZZ selection
         ZZ = []
@@ -360,12 +385,13 @@ class ZZProducer(Module):
             # Choose best ZZ candidate
             bestZZ=[]
             if len(ZZ) > 0:
-                bestZZ = min(ZZ, key = cmp_to_key(bestCandByZ1Z2))
+                if bestCandByMELA : bestZZ = min(ZZ, key = cmp_to_key(bestCandByDbkgKin))
+                else: bestZZ = min(ZZ, key = cmp_to_key(bestCandByZ1Z2))
                 bestZZ_p4=bestZZ[0][4]+bestZZ[1][4]
                 ZZmass = bestZZ_p4.M()
 
                 # Sync-style printout
-                if DUMP: print ('{}:{:.4g}:{:.3g}:{:.3g}:{:.6g}'.format(eventId, ZZmass, bestZZ[0][0], bestZZ[1][0], bestZZ[4])) #event, ZZMass, Z1Mass, Z2Mass, Dbkgkin
+                if DUMP: print ('{}:{:.3f}:{:.3f}:{:.3f}:{:.6g}'.format(eventId, ZZmass, bestZZ[0][0], bestZZ[1][0], bestZZ[4])) #event, ZZMass, Z1Mass, Z2Mass, Dbkgkin
                 
                 ### Fill plots for best candidate
                 self.h_ZZMass.Fill(ZZmass) # Mass
@@ -394,7 +420,7 @@ class ZZProducer(Module):
 
 
 
-muLooseId = lambda l : l.pt > conf["muPt"] and abs(l.eta) < 2.4 and abs(l.dxy) < conf["dxy"] and abs(l.dz) < conf["dz"] and (l.isGlobal or l.isTracker) #FIXME: isGlobalMuon || (isTrackerMuon && numberOfMatches>0)) && muonBestTrackType!=2
+muLooseId = lambda l : l.pt > conf["muPt"] and abs(l.eta) < 2.4 and abs(l.dxy) < conf["dxy"] and abs(l.dz) < conf["dz"] and (l.isGlobal or l.isTracker) #FIXME: l.nStations>0) is not equivalent to numberOfMatches>0); also, muonBestTrackType!=2 is not available
 eleLooseId = lambda l : l.pt > conf["elePt"] and abs(l.eta) < 2.5 and abs(l.dxy) < conf["dxy"] and abs(l.dz) < conf["dz"]
 
 muTightId = lambda l : muLooseId(l) and (l.isPFcand or (l.highPtId>0 and l.pt>200.)) and abs(l.sip3d) < conf["sip3d"] #FIXME: highPtId does not match exactly our definition.
@@ -410,13 +436,19 @@ preselection = ("nMuon + nElectron >= 2 &&" +
                 "Sum$(Electron_pt > {elePt})" +
                 ">= 2").format(**conf)
 
+# Select specific events to debug
+#preselection = ("event.eventId == 840922")
+
 localstore = "/eos/cms/"
 aaastore   = "root://cms-xrd-global.cern.ch/"
 # ggH125
-#files = [localstore+"/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root"]
+files = [localstore+"/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root"]
 
 # ZH125
-files = [aaastore+"/store/mc/RunIIAutumn18NanoAODv7/ZH_HToZZ_4LFilter_M125_13TeV_powheg2-minlo-HZJ_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/60000/C670B342-C02E-1848-AE6A-0B5550E3DFE3.root"]
+#files = [aaastore+"/store/mc/RunIIAutumn18NanoAODv7/ZH_HToZZ_4LFilter_M125_13TeV_powheg2-minlo-HZJ_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/60000/C670B342-C02E-1848-AE6A-0B5550E3DFE3.root"]
 
-p = PostProcessor(".", files, cut=preselection, branchsel=None, modules=ZZSequence, noOut=True, histFileName="histOut.root", histDirName="plots", maxEntries=20)
+#High mass sample
+#files = [aaastore+"/store/mc/RunIIAutumn18NanoAODv7/VBF_HToZZTo4L_M3000_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/60000/A82C31DF-0A6F-B44F-857B-89BFD72CEFEA.root"]
+
+p = PostProcessor(".", files, cut=preselection, branchsel=None, modules=ZZSequence, noOut=True, histFileName="histOut.root", histDirName="plots", maxEntries=0)
 p.run()
