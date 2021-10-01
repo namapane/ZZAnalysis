@@ -162,8 +162,13 @@ class ZZProducer(Module):
                         motherId = genpart[gp.genPartIdxMother].pdgId
                         if genpart[gp.genPartIdxMother].genPartIdxMother >= 0 :
                             gmotherId = genpart[genpart[gp.genPartIdxMother].genPartIdxMother].pdgId
-                    print (i, gp.pdgId, gp.genPartIdxMother, gp.pt, gp.eta, motherId, Mother(gp, genpart), gmotherId)
-        
+                    print (i, gp.pdgId, gp.genPartIdxMother, gp.pt, gp.eta, gp.status)
+            
+                ##LHEPart
+                LHEPart = Collection (event, "LHEPart")
+                print("---------LHEPart---------")
+                for i, Lp in enumerate(LHEPart):
+                    print(i, Lp.pdgId, Lp.pt, Lp.eta, Lp.status, Lp.incomingpz)
               
             for i, gp in enumerate(genpart) :
                 midx = gp.genPartIdxMother

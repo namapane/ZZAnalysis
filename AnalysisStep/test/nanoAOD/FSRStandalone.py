@@ -4,7 +4,7 @@
 # zgrep -ah "^FSR:" AAAOK/ggH125_Chunk*/log.txt.gz | sed -e s/FSR:// -e s/:/" "/g > FSR_tree.txt
 from __future__ import print_function
 import math
-from ROOT import TAttLine,TCanvas, TFile, TColor, gStyle, TH1F, TH1, gROOT, TNtuple
+from ROOT import TAttLine,TCanvas, TFile, TColor, gStyle, TH1F, TH1, gROOT, TNtuple, gDirectory
 from ROOT import kBlack, kBlue, kRed, kOrange, kGreen, kPink,kCyan
 
 def eff(num, den) :
@@ -43,7 +43,7 @@ TH1.SetDefaultSumw2()
 
 
 n=TNtuple("test", "test", "run:ls:event:pT:eta:phi:gRelIso:SCVetoTight:lID:lTight:dR:dRET2:isLoose:isTight:maskLoose:maskTight:isSelStd:isSelNano:muEleOverlap:pTGen:etaGen:phiGen:genFS:genMother")
-n.ReadFile("FSR_tree4.txt");
+n.ReadFile("/afs/cern.ch/user/n/namapane/public/for_Valentina/FSR_tree4.txt");
 
 selection = "isSelStd&&lTight&&genFS<3"
 #selection = "isSelStd&&lTight&&genFS<3&&genMother==25" # only for matched lepton from H
@@ -54,6 +54,7 @@ p_mu  = n.Draw("pT",selection+"&&abs(lID)==13&&pTGen>0")/float(n.Draw("pT",selec
 print("purity e/mu: ", p_ele, p_mu)
 
 # Effect of tight SC veto
+c0 =TCanvas ("c0","c0",800,800)
 n.Draw("pTGen>0:SCVetoTight>>h(2,0,2,2,0,2)",selection,"textcolz")
 h = gROOT.FindObject('h')
 fakesRej=h.GetBinContent(2,1)
@@ -72,3 +73,73 @@ print("tight SC veto: Delta_eff = ", deltaTrues, "Delta_fakes", fakesRej/allFake
 
 # Effect of matching FSR to loose leptons (US's comment). Note: nanoAOD matches to even looser lepts than those considered by maskTight.
 # ...
+
+
+nbins_pt = 43
+nMAX_pt=175.
+nmin_pt = 0.
+
+nbins_eta = 30
+nMAX_eta=3.
+nmin_eta = 0.
+
+h_pur_mu_pt=[TH1F("den_pt_mu","den_pt_mu",nbins_pt,nmin_pt,nMAX_pt),
+             TH1F("num_pt_mu","num_pt_mu",nbins_pt,nmin_pt,nMAX_pt),
+             TH1F("purity_pt_mu","purity_pt_mu",nbins_pt,nmin_pt,nMAX_pt)]
+h_pur_el_pt =[TH1F("den_pt_el","den_pt_el",nbins_pt,nmin_pt,nMAX_pt),
+              TH1F("num_pt_el","num_pt_el",nbins_pt,nmin_pt,nMAX_pt),
+              TH1F("purity_pt_el","purity_pt_el",nbins_pt,nmin_pt,nMAX_pt)]
+
+h_pur_mu_eta=[TH1F("den_eta_mu","den_eta_mu",nbins_eta,nmin_eta,nMAX_eta),
+              TH1F("num_eta_mu","num_eta_mu",nbins_eta,nmin_eta,nMAX_eta),
+              TH1F("purity_eta_mu","purity_eta_mu",nbins_eta,nmin_eta,nMAX_eta)]
+h_pur_el_eta =[TH1F("den_eta_el","den_eta_el",nbins_eta,nmin_eta,nMAX_eta),
+               TH1F("num_eta_el","num_eta_el",nbins_eta,nmin_eta,nMAX_eta),
+               TH1F("purity_eta_el","purity_eta_el",nbins_eta,nmin_eta,nMAX_eta)]
+
+p_ele = n.Draw("pT",selection+"&&abs(lID)==11&&pTGen>0")/float(n.Draw("pT",selection+"&&abs(lID)==11"))
+p_mu  = n.Draw("pT",selection+"&&abs(lID)==13&&pTGen>0")/float(n.Draw("pT",selection+"&&abs(lID)==13"))
+
+iEntry=0
+nEntries = n.GetEntries()
+while iEntry< nEntries and n.GetEntry(iEntry):
+    if( n.isSelStd and n.lTight and n.genFS<3 and abs(n.lID)== 13):
+        h_pur_mu_pt[0].Fill(n.pT)
+        h_pur_mu_eta[0].Fill(abs(n.eta))
+
+        if(n.pTGen>0):
+           h_pur_mu_pt[1].Fill(n.pT)
+           h_pur_mu_eta[1].Fill(abs(n.eta))
+           
+    if( n.isSelStd and n.lTight and n.genFS<3 and abs(n.lID)== 11):
+        h_pur_el_pt[0].Fill(n.pT)
+        h_pur_el_eta[0].Fill(abs(n.eta))
+        if(n.pTGen>0):
+            h_pur_el_pt[1].Fill(n.pT)
+            h_pur_el_eta[1].Fill(abs(n.eta))  
+    
+    iEntry+=1
+
+h_pur_mu_pt[2].Divide(h_pur_mu_pt[1],h_pur_mu_pt[0],1.,1.,"b")
+h_pur_mu_pt[2].GetXaxis().SetTitle("pT [GeV]")
+c1= TCanvas("p_mu_pt","p_mu_pt",800,800)
+h_pur_mu_pt[2].Draw()
+
+h_pur_mu_eta[2].Divide(h_pur_mu_eta[1],h_pur_mu_eta[0],1.,1.,"b")
+h_pur_mu_eta[2].GetXaxis().SetTitle("#eta")
+c2= TCanvas("p_mu_eta","p_mu_eta",800,800)
+h_pur_mu_eta[2].Draw()
+
+h_pur_el_pt[2].Divide(h_pur_el_pt[1],h_pur_el_pt[0],1.,1.,"b")
+h_pur_el_pt[2].GetXaxis().SetTitle("pT [GeV]")
+c3= TCanvas("p_el_pt","p_el_pt",800,800)
+h_pur_el_pt[2].Draw()
+
+h_pur_el_eta[2].Divide(h_pur_el_eta[1],h_pur_el_eta[0],1.,1.,"b")
+h_pur_el_eta[2].GetXaxis().SetTitle("#eta")
+c4= TCanvas("p_el_eta","p_el_eta",800,800)
+h_pur_el_eta[2].Draw()
+
+
+
+
