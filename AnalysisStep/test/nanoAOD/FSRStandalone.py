@@ -28,29 +28,36 @@ gStyle.SetGridWidth(1);
 TH1.SetDefaultSumw2()
 
 
+# SCVetoTight : True = would be vetoed by tighter SC veto (as in nanoAOD)
+# vetoPT :   pT of the electron causing a SC tight veto
+# lID :ID of the reco l the photon is associated to
+# lPT :TpT of the reco l the photon is associated to
+# lTight  : lepton matched to gamma passes tight selection
 # isLoose : gamma passes nanoAOD cuts (preselected->always true)
 # isTight : gamma passes H4l cuts
-# SCVetoTight : True = would be vetoed by tighter SC veto (as in nanoAOD)
-# ltight  : lepton matched to gamma passes tight cuts
 # maskLoose : masked by another photon passing loose sel
 # maskTight : masked by another photon passing tight sel
 # isSelStd  : selected by standard sel: (isTight&&!maskTight)
 # isSelNano : tight sel applied after matching loose photons to leptons (emulate tight on top of nanoAOD)
 # muEleOverlap : photon can be associated (within the max DR cut) to both a mu and an ele
+# stealer_ID : of loose lepton that would steal this photon (be careful of tight veto)
+# stealer_pT
+# stealer_DR
 # pTGen : pT of the gen FSR photon matched to the reco photon. Only FSR photons from W,Z->l are considered.
 # genFS: final state (4mu=0, 4e=1, 2e2mu=2)
 # genMother: 25 = l from H->Z; 23 = Z, etc.
 
 
-n=TNtuple("test", "test", "run:ls:event:pT:eta:phi:gRelIso:SCVetoTight:lID:lTight:dR:dRET2:isLoose:isTight:maskLoose:maskTight:isSelStd:isSelNano:muEleOverlap:pTGen:etaGen:phiGen:genFS:genMother")
-n.ReadFile("/afs/cern.ch/user/n/namapane/public/for_Valentina/FSR_tree4.txt");
+#n=TNtuple("test", "test", "run:ls:event:pT:eta:phi:gRelIso:SCVetoTight:lID:lTight:dR:dRET2:isLoose:isTight:maskLoose:maskTight:isSelStd:isSelNano:muEleOverlap:pTGen:etaGen:phiGen:genFS:genMother")
+n=TNtuple("test", "test", "run:ls:event:pT:eta:phi:gRelIso:SCVetoTight:vetoPT:lID:lpT:lTight:dR:dRET2:isLoose:isTight:maskLoose:maskTight:isSelStd:isSelNano:muEleOverlap:stealer_ID:stealer_pT:stealer_DR:pTGen:etaGen:phiGen:genFS:genMother")
+n.ReadFile("/afs/cern.ch/user/n/namapane/public/for_Valentina/FSR_tree5.txt");
 
 
 selection = "isSelStd&&lTight&&genFS<3"
 #selection = "isSelStd&&lTight&&genFS<3&&genMother==25" # only for matched lepton from H
 #selection = "isSelStd&&lTight&&(!SCVetoTight)" # Add tighter SC veto
 
-c0 =TCanvas ("c0","c0",800,800)
+c01 =TCanvas ("SCveto","SC veto",800,800)
 
 p_ele = n.Draw("pT",selection+"&&abs(lID)==11&&pTGen>0")/float(n.Draw("pT",selection+"&&abs(lID)==11"))
 p_mu  = n.Draw("pT",selection+"&&abs(lID)==13&&pTGen>0")/float(n.Draw("pT",selection+"&&abs(lID)==13"))
@@ -60,6 +67,8 @@ print("purity e/mu: ", p_ele, p_mu)
 # Effect of tight SC veto
 n.Draw("pTGen>0:SCVetoTight>>h(2,0,2,2,0,2)",selection,"textcolz")
 h = gROOT.FindObject('h')
+h.SetXTitle("Tight SC veto")
+h.SetYTitle("Fake/True")
 fakesRej=h.GetBinContent(2,1)
 truesRej=h.GetBinContent(2,2)
 allFakes=h.GetBinContent(1,1)+fakesRej
@@ -68,14 +77,27 @@ deltaTrues=truesRej/allTrues
 deltaPur=fakesRej/(allTrues+allFakes)
 print("tight SC veto: Delta_eff = ", deltaTrues, "Delta_fakes", fakesRej/allFakes, "Delta_purity", deltaPur)
 
-# Effect of matching loose photons in nanoAOD+tighter cut at analysis level
-# ...
+c02=TCanvas ("stealing","stealing",1600,800)
+c02.Divide(2,1)
+c02.cd(1)
+n.Draw("pTGen>0:stealer_pT>0>>h2(2,0,2,2,0,2)",selection,"textcolz")
+h2 = gROOT.FindObject('h2')
+h2.SetXTitle("Stealed False/True")
+h2.SetYTitle("Fake/True")
+c02.cd(2)
+n.Draw("pTGen>0:stealer_pT>0>>h3(2,0,2,2,0,2)",selection+"&&(!SCVetoTight)","textcolz")
 
-# Effect of matching muons and electrons independently
-# ...
+c03 =TCanvas ("Masking","Masking",800,800)
+n.Draw("pTGen>0:maskLoose>>h4(2,0,2,2,0,2)",selection,"textcolz")
 
-# Effect of matching FSR to loose leptons (US's comment). Note: nanoAOD matches to even looser lepts than those considered by maskTight.
-# ...
+# Discrepaancy in nanoAOD due to stealing
+# >>> (121.+93)/(11857+3654+121+93)
+#     0.013608903020667727
+# For trues and fakes:
+# >>> (121.)/(11857+121)
+#     0.010101853397896142
+# >>> (93.)/(3654+93)
+#     0.024819855884707767
 
 
 nbins_pt = 16

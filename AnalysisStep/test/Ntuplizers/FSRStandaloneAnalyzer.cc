@@ -35,6 +35,7 @@ struct FSRCandidate {
   edm::Ptr<pat::PackedCandidate> g;
   double gRelIso;
   bool SCVetoTight;
+  float vetoer_pT;
   double dRMinEle; // distance to closest ele
   double dRMinMu;  // distance to closest mu
   const pat::Electron* closestEle = nullptr;
@@ -45,9 +46,8 @@ struct FSRCandidate {
   // Parameters, w.r.t. closest lepton
   float dR() {return min(dRMinMu,dRMinEle);}
   float dRET2() {return dR()/g->pt()/g->pt();}
-  int lepId() {return closestLep->pdgId();}
-  bool isLoose() {return gRelIso<2   && dRET2()<0.05;}  // nanoAOD selection
-  bool isTight() {return gRelIso<1.8 && dRET2()<0.012;} // H4l selection
+  bool isFSRLoose() {return gRelIso<2   && dRET2()<0.05;}  // nanoAOD selection
+  bool isFSRTight() {return gRelIso<1.8 && dRET2()<0.012;} // H4l selection
   bool isLepTight() {
     if (dRMinEle<dRMinMu) return closestEle->userFloat("isGood");
     else return closestMu->userFloat("isGood");
@@ -55,16 +55,15 @@ struct FSRCandidate {
   const reco::GenParticle* genLepton() {
     if (dRMinEle<dRMinMu) return closestEle->genLepton();
     else return closestMu->genLepton();
-  }
-  
+  }  
 
   // w.r.t. closest mu
-  bool isLoose_mu() {return closestMu!=nullptr && gRelIso<2   && dRMinMu/g->pt()/g->pt()<0.05;}
-  bool isTight_mu() {return closestMu!=nullptr && gRelIso<1.8 && dRMinMu/g->pt()/g->pt()<0.012;}
+  bool isFSRLoose_mu() {return closestMu!=nullptr && gRelIso<2   && dRMinMu/g->pt()/g->pt()<0.05;}
+  bool isFSRTight_mu() {return closestMu!=nullptr && gRelIso<1.8 && dRMinMu/g->pt()/g->pt()<0.012;}
   
   // w.r.t. closest ele
-  bool isLoose_ele() {return closestEle!=nullptr && gRelIso<2   && dRMinEle/g->pt()/g->pt()<0.05;}
-  bool isTight_ele() {return closestEle!=nullptr && gRelIso<1.8 && dRMinEle/g->pt()/g->pt()<0.012;}
+  bool isFSRLoose_ele() {return closestEle!=nullptr && gRelIso<2   && dRMinEle/g->pt()/g->pt()<0.05;}
+  bool isFSRTight_ele() {return closestEle!=nullptr && gRelIso<1.8 && dRMinEle/g->pt()/g->pt()<0.012;}
 
 };
 
@@ -86,8 +85,9 @@ class FSRStandaloneAnalyzer : public edm::EDAnalyzer {
 
   edm::EDGetTokenT<edm::View<pat::PackedCandidate> > pfCandToken;
   edm::EDGetTokenT<pat::MuonCollection> muonToken;
+  edm::EDGetTokenT<pat::MuonRefVector> muonAllToken;
   edm::EDGetTokenT<pat::ElectronCollection> electronToken;
-  edm::EDGetTokenT<pat::ElectronCollection> electronVetoToken;
+  edm::EDGetTokenT<pat::ElectronCollection> electronAllToken;
   edm::EDGetTokenT<edm::View<reco::Candidate> > genParticleToken;
   edm::EDGetTokenT<GenEventInfoProduct> genInfoToken;
 //   edm::EDGetTokenT<std::vector<PileupSummaryInfo> > PupInfoToken;
@@ -100,7 +100,9 @@ class FSRStandaloneAnalyzer : public edm::EDAnalyzer {
 FSRStandaloneAnalyzer::FSRStandaloneAnalyzer(const edm::ParameterSet& iConfig) :
   pfCandToken(consumes<edm::View<pat::PackedCandidate> >(edm::InputTag("packedPFCandidates"))), // input for photons
   muonToken(consumes<pat::MuonCollection>(edm::InputTag("softMuons"))), 
+  muonAllToken(consumes<pat::MuonRefVector>(edm::InputTag("finalMuons"))), // selected as in nanoAOD
   electronToken(consumes<pat::ElectronCollection>(edm::InputTag("cleanSoftElectrons"))),
+  electronAllToken(consumes<pat::ElectronCollection>(edm::InputTag("slimmedElectrons"))), // all
   genParticleToken(consumes<edm::View<reco::Candidate> >( edm::InputTag("prunedGenParticles"))),
   genInfoToken(consumes<GenEventInfoProduct>( edm::InputTag("generator"))),
   debug(iConfig.getUntrackedParameter<bool>("debug",false)) {}
@@ -119,6 +121,12 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
   edm::Handle<pat::ElectronCollection> electronHandle;
   iEvent.getByToken(electronToken, electronHandle);
 
+  edm::Handle<pat::MuonRefVector> muonAllHandle;
+  iEvent.getByToken(muonAllToken, muonAllHandle);
+
+  edm::Handle<pat::ElectronCollection> electronAllHandle;
+  iEvent.getByToken(electronAllToken, electronAllHandle);
+
   // MC Truth
   edm::Handle<edm::View<reco::Candidate> > genParticles;
   iEvent.getByToken(genParticleToken, genParticles);
@@ -129,7 +137,8 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
   int genFinalState = mch.genFinalState();
 
   vector<const reco::Candidate *> genFSR = mch.genFSR();
-  vector<int> nRecoFSRMatchedToGen(genFSR.size(),0);
+
+  vector<int> nRecoFSRMatchedToGen(genFSR.size(),0); // check: how many photons are matched to each gen FSR?
 
   //----------------------
   // Loop on photons
@@ -138,7 +147,7 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
   vector<FSRCandidate> photons;
   
   typedef map<const reco::Candidate*, vector<size_t> > PhIdxsByLep;
-  PhIdxsByLep photonsByLep;
+  PhIdxsByLep photonsByLep; // indexes of photon candidates associated to each lep
 
 
   for (unsigned int i=0;i<pfCands->size();++i) {
@@ -155,8 +164,11 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
     //---------------------
     // // Supercluster veto
     //---------------------
-    bool SCVeto=false;
-    bool SCVetoTight=false; // Tighter (veto also non-SIP electrons)
+    bool SCVeto=false;      // H4l veto (veto only against loose ID+SIP)
+    bool SCVetoTight=false; // nanoAOD-style (veto any slimmedElectrons, without even a pT cut)
+
+
+    // H4l-style veto: vs loose ID + SIP leptons 
     if (electronHandle->size()>0) {
       for (unsigned int j = 0; j< electronHandle->size(); ++j){
 	const pat::Electron* e = &((*electronHandle)[j]);
@@ -164,10 +176,25 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
 	  edm::RefVector < pat::PackedCandidateCollection > pfcands = e->associatedPackedPFCandidates();
 	  for ( auto itr: pfcands ) {
 	    if (g.get()==&(*itr)) {
-	      SCVetoTight=true;
 	      if (e->userFloat("isSIP")) SCVeto=true;
 // 	      if (debug) cout << "SC veto (loose only=" << SCVeto << ") " << itr->eta() << " " << itr->phi() << " " 
 // 			      << fabs(g->eta() - itr->eta()) << " " << reco::deltaPhi(g->phi(), itr->phi()) << endl;
+	    }
+	  }
+	}
+      }
+    }
+    // nano-AOD style: vs any slimmedElectrons, without even a pT cut
+    float vetoer_pT = -1;
+    if (electronAllHandle->size()>0) {
+      for (unsigned int j = 0; j< electronAllHandle->size(); ++j){
+	const pat::Electron* e = &((*electronAllHandle)[j]);
+	if ((e->associatedPackedPFCandidates()).size()) {
+	  edm::RefVector < pat::PackedCandidateCollection > pfcands = e->associatedPackedPFCandidates();
+	  for ( auto itr: pfcands ) {
+	    if (g.get()==&(*itr)) {
+	      SCVetoTight=true;
+	      vetoer_pT = e->pt();
 	    }
 	  }
 	}
@@ -251,6 +278,7 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
       gc.g=g;
       gc.gRelIso=gRelIso;
       gc.SCVetoTight=SCVetoTight;
+      gc.vetoer_pT=vetoer_pT;
       gc.dRMinEle=dRMinEle;
       gc.dRMinMu=dRMinMu;
       gc.closestLep=closestLep;
@@ -266,29 +294,71 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
   // Loop on all photon candidates to print info
   for (size_t iPhoton=0; iPhoton<photons.size(); ++iPhoton) {	
     FSRCandidate& gc = photons[iPhoton];
-    if (!gc.isLoose()) continue;
+    if (!gc.isFSRLoose()) continue;
 
     int lID = gc.closestLep->pdgId(); // ID of the closest lepton
+    float lpT = gc.closestLep->pt();
 
     // Are there other photons associated to the same lepton?
     vector<size_t> allPhotons = photonsByLep[gc.closestLep];
-    bool maskLoose = false; // this photon is masked by another, loose
-    bool maskTight = false; // this photon is masked by another, tight
+    bool maskLoose = false; // this photon is masked by another photon passing loose cuts
+    bool maskTight = false; // this photon is masked by another  photon passing tight cuts
     for (const size_t& iOther : allPhotons){
       FSRCandidate& gOther = photons[iOther];
-      if (iOther!=iPhoton && gOther.dRET2()<gc.dRET2()){ // Another photon could be selected for this lepton
-	if (gOther.isLoose()) maskLoose = true;
-	if (gOther.isTight()) maskTight = true;
+      if (iOther!=iPhoton && gOther.dRET2()<gc.dRET2()){ // Another photon would be selected for this lepton
+	if (gOther.isFSRLoose()) maskLoose = true;
+	if (gOther.isFSRTight()) maskTight = true;
       }
     }
       
-    bool isSelStd = gc.isTight() && !maskTight;  // H4L selection
-    bool isSelNano = gc.isTight() && !maskLoose; // nanoAOD selection + a posteriori tighter cut (may be masked by another loose)
+    bool isSelStd = gc.isFSRTight() && !maskTight;  // H4L selection
+    bool isSelNano = gc.isFSRTight() && !maskLoose; // nanoAOD selection + a posteriori tighter cut (may be masked by another loose)
       
     bool mu_ele_overlap = false;
-    if (gc.closestMu!=0 && gc.closestEle!=0 && gc.isLoose_mu() && gc.isLoose_ele()) { // potential overlap if FSR are collected by mu and ele independently
+    if (gc.closestMu!=0 && gc.closestEle!=0 && gc.isFSRLoose_mu() && gc.isFSRLoose_ele()) { // potential overlap if FSR are collected by mu and ele independently
       mu_ele_overlap = true;
     }
+
+
+    float stealer_pT = -1; // pT of lepton that would steal this FSR
+    int stealer_ID = 0;  // ID of lepton that would steal this FSR
+    float stealer_DR = -1.; // DR of lepton that would steal this FSR
+    // STEALING: loop over all muons and electrons with nanoAOD presel. 
+    // check if muon that is not the one we are considering (by delta R, delta-pT) is closer
+    for (unsigned int j = 0; j< muonAllHandle->size(); ++j){
+      const pat::Muon*  m = &(*((*muonAllHandle)[j].get()));
+      if (m->pdgId()==lID && ROOT::Math::VectorUtil::DeltaR(m->momentum(), gc.closestLep->momentum())<0.1 && abs(m->pt()-lpT)<1.) {
+	// FIXME check
+	continue;
+      }
+      float this_DR = ROOT::Math::VectorUtil::DeltaR(m->momentum(), gc.g->momentum());
+      if ( this_DR < gc.dR()) {
+	stealer_ID = m->pdgId();
+	stealer_pT = m->pt();
+	stealer_DR = this_DR;
+	cout << "STEAL1 " << stealer_ID << " " << stealer_pT << " " << stealer_DR << endl;
+      }
+    }
+    
+    //FIXME do the same for electrons;
+    //all slimmed electrions above 5GeV, cf: https://github.com/cms-sw/cmssw/blob/CMSSW_11_2_X/PhysicsTools/NanoAOD/python/electrons_cff.py#L339    
+    for (unsigned int j = 0; j< electronAllHandle->size(); ++j){
+      const pat::Electron* e = &((*electronAllHandle)[j]);
+      if (e->pdgId()==lID && ROOT::Math::VectorUtil::DeltaR(e->momentum(), gc.closestLep->momentum())<0.1 && abs(e->pt()-lpT)<1.) {
+	// FIXME check
+	continue;
+      }
+      float this_DR = ROOT::Math::VectorUtil::DeltaR(e->momentum(), gc.g->momentum());
+      if ( this_DR < gc.dR()) {
+	stealer_ID = e->pdgId();
+	stealer_pT = e->pt();
+	stealer_DR = this_DR;
+	cout << "STEAL2 " << stealer_ID << " " << stealer_pT << " " << stealer_DR << endl;
+      }
+    }
+    
+
+
 
     double pTGen = -1.;
     double etaGen = 0;
@@ -307,31 +377,36 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
 	 << iEvent.id().run() << ":"
 	 << iEvent.id().luminosityBlock() << ":"
 	 << iEvent.id().event() << " "
-	 << gc.g->pt() << " "  // reco FSR pT
+	 << gc.g->pt() << " "      // reco FSR pT
 	 << gc.g->eta() << " " 
 	 << gc.g->phi() << " "
-	 << gc.gRelIso << " " // photon iso
-	 << gc.SCVetoTight << " " // pass tighter SC veto 
-	 << lID << " " // this is the ID of the reco l the photon is associated to 
-	 << gc.isLepTight() << " " 
-	 << gc.dR() << " "  // DR-reco FSR vs reco lep
-	 << gc.dRET2() << " "  // DR-reco FSR vs reco lep      
-	 << gc.isLoose() << " "
-	 << gc.isTight() << " "
-	 << maskLoose << " " // masked by another passing loose sel
-	 << maskTight << " " // masked by another passing loose sel
-	 << isSelStd << " " // Selected by standard sel
-	 << isSelNano << " " // nanoAOD + tight sel
-	 << mu_ele_overlap << " " 
-      // 	 << dRGenVsReco << " " // dR of gen FSR to reco FSR, if not fake 
-	 << pTGen << " "       // pT of gen FSR, or -1 if fake
+	 << gc.gRelIso << " "      // photon iso
+	 << gc.SCVetoTight << " "  // pass tighter SC veto (nanoAOD style)
+	 << gc.vetoer_pT << " "       // pT of the electron causing a SC tight veto
+	 << lID << " "             // ID of the reco l the photon is associated to 
+	 << lpT << " "             // pT of the reco l the photon is associated to      
+	 << gc.isLepTight() << " " // lepton passes tight selection
+	 << gc.dR() << " "         // DR reco FSR vs reco lep
+	 << gc.dRET2() << " "      // DRET2 reco FSR vs reco lep      
+	 << gc.isFSRLoose() << " " // FSR passes loose (nanHoAOD) sel
+	 << gc.isFSRTight() << " " // FSR passes H4l sel
+	 << maskLoose << " "       // this photon is masked by another photon passing loose cuts 
+	 << maskTight << " "       // this photon is masked by another  photon passing tight cuts
+	 << isSelStd << " "        // Selected by H4l sel (= FSRTight && !maskTight)
+	 << isSelNano << " "       // Would be selected with tight cuts over nanoAOD (= FSRTight && !maskLoose)
+	 << mu_ele_overlap << " "  // Would be associated to both an ele and a mu
+	 << stealer_ID << " " 
+	 << stealer_pT << " " 
+	 << stealer_DR << " " 
+	 << pTGen << " "           // pT of gen FSR, or -1 if fake
 	 << etaGen << " "
 	 << phiGen << " "
+	 << genFinalState << " "   
+	 << lParentType            // ID of the lepton's original ancestor
+      // 	 << dRGenVsReco << " " // dR of gen FSR to reco FSR, if not fake
       // 	 << Nvtx << " "
       // 	 << NObsInt << " "
       // 	 << NTrueInt << " "
-	 << genFinalState << " " 
-	 << lParentType
 	 << endl; 
   }
     
