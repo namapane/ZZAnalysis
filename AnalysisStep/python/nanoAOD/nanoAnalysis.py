@@ -10,6 +10,7 @@ from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import Pos
 from PhysicsTools.NanoAODTools.postprocessing.tools import *
 from importlib import import_module
 from functools import cmp_to_key
+from ctypes import *
 
 #MELA
 from JHUGenMELA.MELA.mela import Mela, SimpleParticle_t, SimpleParticleCollection_t, TVar
@@ -26,8 +27,8 @@ DEBUG = False
 DUMP = True          # dump candidates
 isMC = False         # analyze for gen info
 printGenHist = False # print MC history
-runMELA = False
-bestCandByMELA = False # requires also runMELA=True
+runMELA = True
+bestCandByMELA = True # requires also runMELA=True
 
 conf = dict(
     muPt = 5.,
@@ -90,6 +91,8 @@ class ZZProducer(Module):
         if runMELA :
             self.mela = Mela(13, 125, TVar.ERROR)
             self.mela.setCandidateDecayMode(TVar.CandidateDecay_ZZ)      
+            self.lib = CDLL('libZZAnalysisAnalysisStep.so')
+            self.lib.D_bkg_kin.restype = c_float
 
     def beginJob(self,histFile=None, histDirName=None):
         Module.beginJob(self, histFile, histDirName)
@@ -368,7 +371,7 @@ class ZZProducer(Module):
                         for ilep in range (0,4):
                             lep = leps[lIdxs[ilep]]
                             lep_p4 = lep.p4()
-                            daughters.push_back(SimpleParticle_t(lep.pdgId, lep.p4() + fsrP4s[ilep]))                            
+                            daughters.push_back(SimpleParticle_t(lep.pdgId, lep.p4() + fsrP4s[ilep]))                         
                             #print("MELA ", daughters[ilep].first, daughters[ilep].second.Pt(), daughters[ilep].second.Eta(), daughters[ilep].second.Phi(),daughters[ilep].second.M())
                         self.mela.setInputEvent(daughters, 0, 0, 0)
                         self.mela.setProcess(TVar.HSMHiggs, TVar.JHUGen, TVar.ZZGG)
@@ -376,44 +379,54 @@ class ZZProducer(Module):
                         self.mela.setProcess(TVar.bkgZZ, TVar.MCFM, TVar.ZZQQB)
                         p_QQB_BKG_MCFM = self.mela.computeP(True)
                         self.mela.resetInputEvent()
-                    dBkgKin = p_GG_SIG_ghg2_1_ghz1_1_JHUGen/(p_GG_SIG_ghg2_1_ghz1_1_JHUGen+p_QQB_BKG_MCFM)
+                    KD = p_GG_SIG_ghg2_1_ghz1_1_JHUGen/(p_GG_SIG_ghg2_1_ghz1_1_JHUGen+p_QQB_BKG_MCFM) # without c-constants, for candidate sorting
+                    if DEBUG: print("ZZ=", (Z1[4]+Z2[4]).M(), p_GG_SIG_ghg2_1_ghz1_1_JHUGen, p_QQB_BKG_MCFM, KD)
 
-                    if DEBUG: print("ZZ=", (Z1[4]+Z2[4]).M(), p_GG_SIG_ghg2_1_ghz1_1_JHUGen, p_QQB_BKG_MCFM, dBkgKin)
-
-                    ZZ.append([Z1, Z2, abs(Z1[0]-ZmassValue), Z2ptsum, dBkgKin]) 
+                    ZZ.append([Z1, Z2, abs(Z1[0]-ZmassValue), Z2ptsum, KD, p_GG_SIG_ghg2_1_ghz1_1_JHUGen, p_QQB_BKG_MCFM]) 
 
             # Choose best ZZ candidate
             bestZZ=[]
             if len(ZZ) > 0:
                 if bestCandByMELA : bestZZ = min(ZZ, key = cmp_to_key(bestCandByDbkgKin))
                 else: bestZZ = min(ZZ, key = cmp_to_key(bestCandByZ1Z2))
-                bestZZ_p4=bestZZ[0][4]+bestZZ[1][4]
+
+                Z1 = bestZZ[0]
+                Z2 = bestZZ[1]
+
+                # indexes of four leptons (Z1_1, Z1_2, Z2_1, Z2_2)
+                lIdxs  =[Z1[2],Z1[3],Z2[2],Z2[3]] 
+                # p4s of corresponding FRSs
+                fsrP4s =[Z1[5],Z1[6],Z2[5],Z2[6]]
+
+                bestZZ_p4=Z1[4]+Z2[4]
                 ZZmass = bestZZ_p4.M()
 
+                # Compute ZZ mass without adding FSR
+                m4l_p4=ROOT.TLorentzVector()
+                for i in range (0,4): m4l_p4 += (leps[lIdxs[i]].p4())
+                ZZmass_lep=m4l_p4.M()
+
+
+                ZZFlav = (leps[Z1[2]].pdgId * leps[Z2[2]].pdgId)**2 # product of the IDs of the 4 leps
+
+                Dbkgkin = 0.
+                if runMELA:
+                    Dbkgkin = self.lib.D_bkg_kin(c_float(bestZZ[5]), c_float(bestZZ[6]), c_int(int(ZZFlav)),c_float(ZZmass)) #including c-constants
+
                 # Sync-style printout
-                if DUMP: print ('{}:{:.3f}:{:.3f}:{:.3f}:{:.6g}'.format(eventId, ZZmass, bestZZ[0][0], bestZZ[1][0], bestZZ[4])) #event, ZZMass, Z1Mass, Z2Mass, Dbkgkin
+                if DUMP: print ('{}:{:.3f}:{:.3f}:{:.3f}:{:.3f}:{}:{:.6g}'.format(eventId, ZZmass, bestZZ[0][0], bestZZ[1][0], ZZmass_lep, ZZFlav, Dbkgkin)) #event, ZZMass, Z1Mass, Z2Mass, ZZMassPreFSR, ZZFlav, Dbkgkin
                 
                 ### Fill plots for best candidate
                 self.h_ZZMass.Fill(ZZmass) # Mass
 
-                ZZflavour = abs(leps[lIdxs[0]].pdgId * leps[lIdxs[2]].pdgId)
-                plotFlavours={11**2:0, 13**2:1, 11*13:2} # 4e, 4mu, 2e2mu
-                pIdx=plotFlavours[ZZflavour]
-                
-                self.hZZ[pIdx].Fill(ZZmass) # Mass by final state
+                plotFlavours={11**4:0, 13**4:1, (11*13)**2:2} # 4e, 4mu, 2e2mu
+                pIdx=plotFlavours[ZZFlav]                
+                self.hZZ[pIdx].Fill(ZZmass) # Mass by final state                            
 
-                # Mass for events with FSR photons
-                hasFSR = reduce(lambda ret,p4 : ret and p4.Pt()>0, fsrP4s, False) #check if any of the leptons has FSR
-                if(hasFSR):
-                    # Compute ZZ mass without adding FSR
-                    m4l_p4=ROOT.TLorentzVector()
-                    for i in range (0,4):
-                        m4l_p4 += (leps[lIdxs[i]].p4())
-                    ZZmass_lep=m4l_p4.M()
-
+                hasFSR = reduce(lambda ret,p4 : ret or p4.Pt()>0, fsrP4s, False) #check if any of the leptons has FSR
+                if(hasFSR): # for FSR events only
                     self.hZZFSR[pIdx].Fill(ZZmass)
-                    self.hZZ_ncF[pIdx].Fill(ZZmass_lep)                
-
+                    self.hZZ_ncF[pIdx].Fill(ZZmass_lep)
 
 
         return True
