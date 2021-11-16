@@ -320,17 +320,17 @@ class ZZProducer(Module):
         Zs = []
         for i,l1 in enumerate(leps):
             # Require tight ID
-            if ( (abs(l1.pdgId) == 13 and combRelIsoPFFSRCorr[i] >= conf["relIso"] and not muTightId(l1)) or 
-                 abs(l1.pdgId) == 11 and not eleTightId(l1)) : continue
+            if ( (abs(l1.pdgId) == 13 and (combRelIsoPFFSRCorr[i] >= conf["relIso"] or not muTightId(l1))) or 
+                 (abs(l1.pdgId) == 11 and not eleTightId(l1))) : continue
             for j in range(i+1,nlep):
                 l2 = leps[j]
-                if ( (abs(l2.pdgId) == 13 and combRelIsoPFFSRCorr[j] >= conf["relIso"] and not muTightId(l2)) or 
-                     abs(l2.pdgId) == 11 and not eleTightId(l2)) : continue
+                if ( (abs(l2.pdgId) == 13 and (combRelIsoPFFSRCorr[j] >= conf["relIso"] or not muTightId(l2))) or 
+                     (abs(l2.pdgId) == 11 and not eleTightId(l2))) : continue
                 if l1.pdgId == -l2.pdgId: #OS,SF
                     myfsr = {i:ROOT.TLorentzVector(), j:ROOT.TLorentzVector()}
                     Z_p4 = (l1.p4() + l2.p4())
                     for k in [i, j]: 
-                        if ( abs(leps[k].pdgId)==13 and lep_fsrPhotonIdx[k]>=0): # add FSR if present
+                        if (lep_fsrPhotonIdx[k]>=0): # add FSR if present
                             fsr = fsrPhotons[lep_fsrPhotonIdx[k]]
                             fsr_p4 = ROOT.TLorentzVector() # note: fsr.p4() does not work as it relies on fsr.M, which is not stored
                             fsr_p4.SetPtEtaPhiM(fsr.pt,fsr.eta,fsr.phi,0.) 
