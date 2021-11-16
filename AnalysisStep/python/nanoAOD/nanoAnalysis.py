@@ -143,7 +143,6 @@ class ZZProducer(Module):
             dR = deltaR(l.eta, l.phi, f.eta, f.phi)
             if dR >0.01 and dR < 0.3 :
                 combRelIsoPFFSRCorr = max(0., l.pfRelIso03_all-f.pt/l.pt)
-#                if DEBUG : print ("FSR_iso_corr,", l.pt, f.pt)
         return combRelIsoPFFSRCorr
 
 
@@ -218,25 +217,54 @@ class ZZProducer(Module):
         if not passTrigger : return False
 
 
-        # Select Tight leptons
+        # Collections
         electrons = Collection(event, "Electron")
         muons = Collection(event, "Muon")
-        leps = filter(muTightId, muons) 
-        leps += filter(eleTightId, electrons)
-        nlep=len(leps)
-
-        # Select FSR photons associated to muons passing loosse ID+SIP, to correct isolation
         fsrPhotons = Collection(event, "FsrPhoton")
-        selectedFSR = filter(lambda f : fsrSel(f) and muLooseId(muons[f.muonIdx]) and muons[f.muonIdx].sip3d<conf["sip3d"], fsrPhotons) 
+        leps = filter(muLooseId, muons)
+        leps += filter(eleLooseId, electrons) # muons+electrons passing loose ID (without SIP)
+        nlep=len(leps)
+        
+        
+        # FSR matching with Loose leptons passing SIP as default association may be wrong due to masking
+        fsrClosestLep=[-1]*len(fsrPhotons) # index of lepton in the leps collection, that is closest to photon 
+        for ph3, photon3 in enumerate (fsrPhotons):
+            dRmin_lep = 1e9            
+            if (photon3.pt > 2. and abs(photon3.eta) < 2.4 and photon3.relIso03 < conf["fsr_Iso"] ) :
+                for ll, lepton in enumerate (leps):
+                    if (abs(lepton.sip3d) < conf["sip3d"]) :
+                        dRlep = deltaR(lepton.eta, lepton.phi, photon3.eta, photon3.phi)
+                        if(dRlep < dRmin_lep ):
+                            dRmin_lep= dRlep
+                            fsrClosestLep[ph3]=ll
+                            # print ("lep assoc ", "dRmin_lep=", dRmin_lep )
+
+        
+        lep_fsrPhotonIdx=[-1]*len(leps) # index of photon in the fsrPhotons coll, that matched to n-th lepton in the leps collection 
+        lep_fsrPhotonDREt2=[-1.]*len(leps) # dR/Et2 of that photon
+        selectedFSR = [] # all selected FSR (to recompute isolation)
+        for l1,lepton1  in enumerate (leps):
+            dRphOverEt2Lep_min = 1e9
+            for ph4, photon4 in enumerate (fsrPhotons):
+                if fsrClosestLep[ph4] == l1 :
+                    dRphLep = deltaR(lepton1.eta, lepton1.phi, photon4.eta, photon4.phi)
+                    dRphOverEt2Lep = dRphLep/photon4.pt**2
+                    # print("dRphOverEt2Lep=", dRphOverEt2Lep)
+                    if(dRphOverEt2Lep < conf["fsr_dRET2"] and dRphOverEt2Lep < dRphOverEt2Lep_min) :
+                        dRphOverEt2Lep_min = dRphOverEt2Lep
+                        lep_fsrPhotonIdx[l1] = ph4
+                        lep_fsrPhotonDREt2[l1] = dRphOverEt2Lep
+            if lep_fsrPhotonIdx[l1] > -1 : 
+                # print ("FSR-LEP matching", lepton1.pt, photon4.pt, dRphOverEt2Lep_min)
+                selectedFSR.insert(l1,photon4)
+                #FIXME: add photon4 to a collection selectedFSR
+
+
+        # Correct isolation for selected FSR photons
         combRelIsoPFFSRCorr = [0.]*nlep
         for i,l in enumerate(leps) :
-            combRelIsoPFFSRCorr[i] = self.isoFsrCorr(l, selectedFSR)            
+            combRelIsoPFFSRCorr[i] = self.isoFsrCorr(l, selectedFSR)
 
-        ### Lepton histograms
-        # Fill muon pt histogram for muons w FSR
-        for i,muon in enumerate(muons):
-            if(muon.fsrPhotonIdx>=0):
-                self.h_ptmFSR.Fill(muon.pt)
 
         ### Print lepton info
         if DUMP : 
@@ -265,7 +293,7 @@ class ZZProducer(Module):
                 if (lep.fsrPhotonIdx>=0):
                     fsr=fsrPhotons[lep.fsrPhotonIdx]
 
-                    print(' FSR: pt={:.3g} eta={:.3g}, dREt2={:.3g}, Iso={:.3g}, true={}'.format(fsr.pt, fsr.eta, fsr.dROverEt2, fsr.relIso03, int(fsrMatch(fsr,GenFSR))))
+                    print(' FSR: pt={:.3g} eta={:.3g}, phi={:.3g}, dREt2={:.3g}, Iso={:.3g}, true={}'.format(fsr.pt, fsr.eta, fsr.phi, fsr.dROverEt2, fsr.relIso03, int(fsrMatch(fsr,GenFSR))))
                         
                 else:
                     print()
@@ -288,21 +316,23 @@ class ZZProducer(Module):
         ### Z combinatorial over selected leps (after FSR-corrected ISO cut for muons)
         Zs = []
         for i,l1 in enumerate(leps):
-            if abs(l1.pdgId) == 13 and combRelIsoPFFSRCorr[i] >= conf["relIso"] : continue
+            # Require tight ID
+            if ( (abs(l1.pdgId) == 13 and combRelIsoPFFSRCorr[i] >= conf["relIso"] and not muTightId(l1)) or 
+                 abs(l1.pdgId) == 11 and not eleTightId(l1)) : continue
             for j in range(i+1,nlep):
                 l2 = leps[j]
-                if abs(l2.pdgId) == 13 and combRelIsoPFFSRCorr[j] >= conf["relIso"] : continue
+                if ( (abs(l2.pdgId) == 13 and combRelIsoPFFSRCorr[j] >= conf["relIso"] and not muTightId(l2)) or 
+                     abs(l2.pdgId) == 11 and not eleTightId(l2)) : continue
                 if l1.pdgId == -l2.pdgId: #OS,SF
                     myfsr = {i:ROOT.TLorentzVector(), j:ROOT.TLorentzVector()}
                     Z_p4 = (l1.p4() + l2.p4())
                     for k in [i, j]: 
-                        if abs(leps[k].pdgId)==13 and leps[k].fsrPhotonIdx>=0: # add FSR if present
-                            fsr = fsrPhotons[leps[k].fsrPhotonIdx]
-                            if fsrSel(fsr) :
-                                fsr_p4 = ROOT.TLorentzVector() # note: fsr.p4() does not work as it relies on fsr.M, which is not stored
-                                fsr_p4.SetPtEtaPhiM(fsr.pt,fsr.eta,fsr.phi,0.) 
-                                myfsr[k] = fsr_p4
-                                Z_p4 += fsr_p4
+                        if ( abs(leps[k].pdgId)==13 and lep_fsrPhotonIdx[k]>=0): # add FSR if present
+                            fsr = fsrPhotons[lep_fsrPhotonIdx[k]]
+                            fsr_p4 = ROOT.TLorentzVector() # note: fsr.p4() does not work as it relies on fsr.M, which is not stored
+                            fsr_p4.SetPtEtaPhiM(fsr.pt,fsr.eta,fsr.phi,0.) 
+                            myfsr[k] = fsr_p4
+                            Z_p4 += fsr_p4
                     zmass = Z_p4.M()
                     if DUMP: print('Z={:.4g} pt1={:.3g} pt2={:.3g}'.format(zmass, l1.pt, l2.pt))
                     if (zmass>12. and zmass<120.):
@@ -420,14 +450,12 @@ class ZZProducer(Module):
 
 
 
-muLooseId = lambda l : l.pt > conf["muPt"] and abs(l.eta) < 2.4 and abs(l.dxy) < conf["dxy"] and abs(l.dz) < conf["dz"] and (l.isGlobal or l.isTracker) #FIXME: l.nStations>0) is not equivalent to numberOfMatches>0); also, muonBestTrackType!=2 is not available
+muLooseId = lambda l : l.pt > conf["muPt"] and abs(l.eta) < 2.4 and abs(l.dxy) < conf["dxy"] and abs(l.dz) < conf["dz"] and (l.isGlobal or l.isTracker) #Note: FSR-crrected isolation has also to be applied #FIXME: l.nStations>0) is not equivalent to numberOfMatches>0); also, muonBestTrackType!=2 is not available
 eleLooseId = lambda l : l.pt > conf["elePt"] and abs(l.eta) < 2.5 and abs(l.dxy) < conf["dxy"] and abs(l.dz) < conf["dz"]
 
 muTightId = lambda l : muLooseId(l) and (l.isPFcand or (l.highPtId>0 and l.pt>200.)) and abs(l.sip3d) < conf["sip3d"] #FIXME: highPtId does not match exactly our definition.
     
 eleTightId =  lambda l : eleLooseId(l) and abs(l.sip3d) < conf["sip3d"] and passEleBDT(l.pt, l.eta+l.deltaEtaSC, l.mvaFall17V2Iso) #FIXME: We use different BDTs for 2016 and 2018
-
-fsrSel = lambda f : f.dROverEt2 < conf["fsr_dRET2"] and f.relIso03 < conf["fsr_Iso"] and f.pt > 2. and abs(f.eta) < 2.4
 
 ZZSequence = [ZZProducer()]
 

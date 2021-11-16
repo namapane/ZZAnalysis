@@ -14,7 +14,7 @@ def binError(num, den) :
     return math.sqrt((eff*(1-eff))/den)
 
 def printEff(num, den):
-    return  "({:.1f}+{:.1f})%".format(100.*num/den,100.*binError(num,den))
+    return  "({:.3f}+{:.3f})%".format(100.*num/den,100.*binError(num,den))
 
 def loop():
 
@@ -78,6 +78,8 @@ def loop():
     nIsoRecovered=[0]*3 #4e, 4mu, 2e2mu
     nIsoRecovered_wFake=[0]*3 #4e, 4mu, 2e2mu
     nhasFake=[0]*3 #4e, 4mu, 2e2mu
+    nCandRecoverZ1Mass = [0]*3 #4e, 4mu, 2e2mu
+    nCandRecoverZ2Mass = [0]*3 #4e, 4mu, 2e2mu
     nLepWithFSR=0
     nLepFSRRecovered_self=0
     nLepFSRRecovered_other=0
@@ -110,6 +112,25 @@ def loop():
         hasFSR = False
         hasFake = False
         nRecoveredLeps = [0,0] #true, false
+        
+        #Window mass
+        lep_p4 = ROOT.TLorentzVector()
+        Z1_p4 = ROOT.TLorentzVector()
+        Z2_p4 = ROOT.TLorentzVector()
+        for jLep,l in enumerate (tree.LepPt):
+            lep_p4.SetPtEtaPhiM(tree.LepPt[jLep],tree.LepEta[jLep],tree.LepPhi[jLep],0.)
+            if jLep <2 : Z1_p4 += lep_p4
+            else: Z2_p4 += lep_p4
+        ZZ_mass= (Z1_p4+Z2_p4).M()
+        #Check ZZMass 
+        if(tree.ZZMassPreFSR-ZZ_mass > 0.01):
+            print("ERROR Mass")
+        if(Z1_p4.M()<40 or Z1_p4.M()>120):
+            nCandRecoverZ1Mass[finalState]+=1
+        if(Z2_p4.M()<12 or Z2_p4.M()>120):
+            nCandRecoverZ2Mass[finalState]+=1
+
+
         if len(tree.fsrPt) > 0 :
             nLepWithFSR+=len(tree.fsrPt)
             hasFSR = True # FSR associated to one of the leptons             
@@ -237,5 +258,11 @@ def loop():
     #Just to check
     print("Ele ISO recovered other photon_true = ", nEleFSRRecovered_other[0])
     print("Ele ISO recovered other photon_fake = ", nEleFSRRecovered_other[1])
+    
+    #Mass Window
+    print(" nCandRecoverZ1Mass =  [4e, 4mu, 2e2mu]: {:} [{} {} {}] ".format(nCandRecoverZ1Mass,printEff(nCandRecoverZ1Mass[0],nCandSel[0]), printEff(nCandRecoverZ1Mass[1],nCandSel[1]), printEff(nCandRecoverZ1Mass[2],nCandSel[2])))
+    print(" nCandRecoverZ2Mass =  [4e, 4mu, 2e2mu]: {:} [{} {} {}] ".format(nCandRecoverZ2Mass,printEff(nCandRecoverZ2Mass[0],nCandSel[0]), printEff(nCandRecoverZ2Mass[1],nCandSel[1]), printEff(nCandRecoverZ2Mass[2],nCandSel[2])))
+    print(" nCandRecoverZZMass =  [4e, 4mu, 2e2mu]: [{} {} {}]".format(printEff(nCandRecoverZ1Mass[0]+nCandRecoverZ2Mass[0],nCandSel[0]), printEff(nCandRecoverZ1Mass[1]+nCandRecoverZ2Mass[1],nCandSel[1]), printEff(nCandRecoverZ1Mass[2]+nCandRecoverZ2Mass[2],nCandSel[2])))
+
 if __name__ == "__main__" : #Check me 
     loop()

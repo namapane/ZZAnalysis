@@ -43,7 +43,7 @@ plotLepPt(ifile.fsrMuPt, ifile.fsrElePt, ifile.fsrMuPtFake, ifile.fsrElePtFake)
 
 def plot(hFSR,hNoFSR,hTrue,hFalse) :
     hFSR.SetLineColor(kBlack)
-    hFSR.GetXaxis().SetTitle("m_{4 #it{l} } [GeV/c^{2}]")
+    hFSR.GetXaxis().SetTitle("m_{4#it{l} } [GeV/c^{2}]")
     hFSR.GetYaxis().SetTitle("Arbitrary Units")    
     hNoFSR.SetLineColor(kOrange)
     hTrue.SetLineColor(kRed)

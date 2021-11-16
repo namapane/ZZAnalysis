@@ -4,7 +4,8 @@
 # zgrep -ah "^FSR:" AAAOK/ggH125_Chunk*/log.txt.gz | sed -e s/FSR:// -e s/:/" "/g > FSR_tree.txt
 from __future__ import print_function
 import math
-from ROOT import TAttLine,TCanvas, TFile, TColor, gStyle, TH1F, TH1, gROOT, TNtuple, gDirectory
+from array import array
+from ROOT import TAttLine,TCanvas, TFile, TColor, gStyle, TH1F, TH1, gROOT, TNtuple, gDirectory, TLegend
 from ROOT import kBlack, kBlue, kRed, kOrange, kGreen, kPink,kCyan
 
 def eff(num, den) :
@@ -53,8 +54,8 @@ n=TNtuple("test", "test", "run:ls:event:pT:eta:phi:gRelIso:SCVetoTight:vetoPT:lI
 n.ReadFile("/afs/cern.ch/user/n/namapane/public/for_Valentina/FSR_tree5.txt");
 
 
-selection = "isSelStd&&lTight&&genFS<3"
-#selection = "isSelStd&&lTight&&genFS<3&&genMother==25" # only for matched lepton from H
+#selection = "isSelStd&&lTight&&genFS<3"
+selection = "isSelStd&&lTight&&genFS<3&&genMother==25" # only for matched lepton from H
 #selection = "isSelStd&&lTight&&(!SCVetoTight)" # Add tighter SC veto
 
 c01 =TCanvas ("SCveto","SC veto",800,800)
@@ -75,14 +76,14 @@ allFakes=h.GetBinContent(1,1)+fakesRej
 allTrues=h.GetBinContent(1,2)+truesRej
 deltaTrues=truesRej/allTrues
 deltaPur=fakesRej/(allTrues+allFakes)
-print("tight SC veto: Delta_eff = ", deltaTrues, "Delta_fakes", fakesRej/allFakes, "Delta_purity", deltaPur)
+print("tight SC veto: Delta_eff = ", deltaTrues, "Delta_fakes = ", fakesRej/allFakes, "Delta_purity = ", deltaPur)
 
 c02=TCanvas ("stealing","stealing",1600,800)
 c02.Divide(2,1)
 c02.cd(1)
 n.Draw("pTGen>0:stealer_pT>0>>h2(2,0,2,2,0,2)",selection,"textcolz")
 h2 = gROOT.FindObject('h2')
-h2.SetXTitle("Stealed False/True")
+h2.SetXTitle("Stolen False/True")
 h2.SetYTitle("Fake/True")
 c02.cd(2)
 n.Draw("pTGen>0:stealer_pT>0>>h3(2,0,2,2,0,2)",selection+"&&(!SCVetoTight)","textcolz")
@@ -100,16 +101,28 @@ n.Draw("pTGen>0:maskLoose>>h4(2,0,2,2,0,2)",selection,"textcolz")
 #     0.024819855884707767
 
 
+nbins_FSR_pt = 10
+#nMAX_FSR_pt=250.
+#nmin_FSR_pt = 0.
+lowEdge= [2,10,20,30,40,50,60,80,100,150,250]
+
 nbins_pt = 16
 nMAX_pt=80.
 nmin_pt = 0.
 
-nbins_eta = 30
-nMAX_eta=3.
+nbins_eta = 24
+nMAX_eta=2.4
 nmin_eta = 0.
 
 c1 = TCanvas("ctemp","ctemp",800,800)
 
+h_FSRpT = TH1F("FSRpT","FSRpT",nbins_FSR_pt,array('d',lowEdge))
+h_pur_mu_FSR_pt=[TH1F("den_FSR_pt_mu","den_FSR_pt_mu",nbins_FSR_pt,array('d',lowEdge)),
+             TH1F("num_FSR_pt_mu","num_FSR_pt_mu",nbins_FSR_pt,array('d',lowEdge)),
+             TH1F("purity_FSR_pt_mu","purity_FSR_pt_mu",nbins_FSR_pt,array('d',lowEdge))]
+h_pur_el_FSR_pt =[TH1F("den_FSR_pt_el","den_FSR_pt_el",nbins_FSR_pt,array('d',lowEdge)),
+              TH1F("num_FSR_pt_el","num_FSR_pt_el",nbins_FSR_pt,array('d',lowEdge)),
+              TH1F("purity_FSR_pt_el","purity_FSR_pt_el",nbins_FSR_pt,array('d',lowEdge))]
 
 h_pur_mu_pt=[TH1F("den_pt_mu","den_pt_mu",nbins_pt,nmin_pt,nMAX_pt),
              TH1F("num_pt_mu","num_pt_mu",nbins_pt,nmin_pt,nMAX_pt),
@@ -135,42 +148,106 @@ iEntry=0
 nEntries = n.GetEntries()
 while iEntry< nEntries and n.GetEntry(iEntry):
     if( n.isSelStd and n.lTight and n.genFS<3 and abs(n.lID)== 13):
-        h_pur_mu_pt[0].Fill(n.pT)
+        h_pur_mu_FSR_pt[0].Fill(n.pT)
+        h_pur_mu_pt[0].Fill(n.lpT)
         h_pur_mu_eta[0].Fill(abs(n.eta))
 
         if(n.pTGen>0):
-           h_pur_mu_pt[1].Fill(n.pT)
+           h_pur_mu_FSR_pt[1].Fill(n.pT)
+           h_pur_mu_pt[1].Fill(n.lpT)
            h_pur_mu_eta[1].Fill(abs(n.eta))
            
     if( n.isSelStd and n.lTight and n.genFS<3 and abs(n.lID)== 11):
-        h_pur_el_pt[0].Fill(n.pT)
+        h_pur_el_FSR_pt[0].Fill(n.pT)
+        h_pur_el_pt[0].Fill(n.lpT)
         h_pur_el_eta[0].Fill(abs(n.eta))
         if(n.pTGen>0):
-            h_pur_el_pt[1].Fill(n.pT)
-            h_pur_el_eta[1].Fill(abs(n.eta))  
+            h_pur_el_FSR_pt[1].Fill(n.pT)
+            h_pur_el_pt[1].Fill(n.lpT)
+            h_pur_el_eta[1].Fill(abs(n.eta))
+    if( n.isSelStd and n.lTight and n.genFS<3):
+        h_FSRpT.Fill(n.pT)
     
     iEntry+=1
 
-h_pur_mu_pt[2].Divide(h_pur_mu_pt[1],h_pur_mu_pt[0],1.,1.,"b")
-h_pur_mu_pt[2].GetXaxis().SetTitle("pT [GeV]")
-c1= TCanvas("p_mu_pt","p_mu_pt",800,800)
-h_pur_mu_pt[2].Draw()
+for bin in range(1,11):
+    h_FSRpT.SetBinContent(bin,h_FSRpT.GetBinContent(bin)/h_FSRpT.GetBinWidth(bin))
+    h_FSRpT.SetBinError(bin,h_FSRpT.GetBinError(bin)/h_FSRpT.GetBinWidth(bin))
+
+h_FSRpT.GetXaxis().SetTitle("pT_{#gamma} [GeV]")
+h_FSRpT.GetYaxis().SetTitle("Events/GeV")
+c00 =TCanvas ("FSRpT", "FSRpT", 800,800)
+h_FSRpT.SetMarkerStyle(20)
+h_FSRpT.Draw()
+
+
+
+h_pur_mu_FSR_pt[2].Divide(h_pur_mu_FSR_pt[1],h_pur_mu_FSR_pt[0],1.,1.,"b")
+h_pur_mu_FSR_pt[2].GetXaxis().SetTitle("pT_{#gamma} [GeV]")
+c1= TCanvas("p_mu_FSR_pt","p_mu_FSR_pt",800,800)
+h_pur_mu_FSR_pt[2].GetYaxis().SetTitle("Purity")
+h_pur_mu_FSR_pt[2].SetMarkerStyle(20)
+h_pur_mu_FSR_pt[2].GetYaxis().SetRangeUser(0,1)
+h_pur_mu_FSR_pt[2].Draw()
 
 h_pur_mu_eta[2].Divide(h_pur_mu_eta[1],h_pur_mu_eta[0],1.,1.,"b")
-h_pur_mu_eta[2].GetXaxis().SetTitle("#eta")
+h_pur_mu_eta[2].GetXaxis().SetTitle("#eta_{#gamma}")
 c2= TCanvas("p_mu_eta","p_mu_eta",800,800)
+h_pur_mu_eta[2].GetYaxis().SetTitle("Purity")
+h_pur_mu_eta[2].SetMarkerStyle(20)
+h_pur_mu_eta[2].GetYaxis().SetRangeUser(0,1)
 h_pur_mu_eta[2].Draw()
 
-h_pur_el_pt[2].Divide(h_pur_el_pt[1],h_pur_el_pt[0],1.,1.,"b")
-h_pur_el_pt[2].GetXaxis().SetTitle("pT [GeV]")
-c3= TCanvas("p_el_pt","p_el_pt",800,800)
-h_pur_el_pt[2].Draw()
+h_pur_el_FSR_pt[2].Divide(h_pur_el_FSR_pt[1],h_pur_el_FSR_pt[0],1.,1.,"b")
+h_pur_el_FSR_pt[2].GetXaxis().SetTitle("pT_{#gamma} [GeV]")
+c3= TCanvas("p_el_FSR_pt","p_el_FSR_pt",800,800)
+h_pur_el_FSR_pt[2].GetYaxis().SetTitle("Purity")
+h_pur_el_FSR_pt[2].SetMarkerStyle(20)
+h_pur_el_FSR_pt[2].GetYaxis().SetRangeUser(0,1)
+h_pur_el_FSR_pt[2].Draw()
 
 h_pur_el_eta[2].Divide(h_pur_el_eta[1],h_pur_el_eta[0],1.,1.,"b")
-h_pur_el_eta[2].GetXaxis().SetTitle("#eta")
+h_pur_el_eta[2].GetXaxis().SetTitle("#eta_{#gamma}")
 c4= TCanvas("p_el_eta","p_el_eta",800,800)
+h_pur_el_eta[2].GetYaxis().SetTitle("Purity")
+h_pur_el_eta[2].SetMarkerStyle(20)
+h_pur_el_eta[2].GetYaxis().SetRangeUser(0,1)
 h_pur_el_eta[2].Draw()
 
+h_pur_mu_pt[2].Divide(h_pur_mu_pt[1],h_pur_mu_pt[0],1.,1.,"b")
+#h_pur_mu_pt[2].GetXaxis().SetTitle("pT_{#mu} [GeV]")
+h_pur_mu_pt[2].GetXaxis().SetTitle("pT_{lepton} [GeV]")
+c5= TCanvas("p_mu_pt","p_mu_pt",800,800)
+h_pur_mu_pt[2].GetYaxis().SetTitle("Purity")
+h_pur_mu_pt[2].SetMarkerStyle(20)
+h_pur_mu_pt[2].GetYaxis().SetRangeUser(0,1)
+h_pur_mu_pt[2].Draw()
 
+h_pur_el_pt[2].Divide(h_pur_el_pt[1],h_pur_el_pt[0],1.,1.,"b")
+#h_pur_el_pt[2].GetXaxis().SetTitle("pT_{e} [GeV]")
+#c6= TCanvas("p_el_pt","p_el_pt",800,800)
+h_pur_el_pt[2].GetYaxis().SetTitle("Purity")
+h_pur_el_pt[2].SetMarkerStyle(4)
+h_pur_el_pt[2].GetYaxis().SetRangeUser(0,1)
+h_pur_el_pt[2].SetLineColor(kRed)
+h_pur_el_pt[2].Draw("same")
 
+legend = TLegend()
+legend.AddEntry(h_pur_mu_pt[2], "muon FSR purity", "lp")
+legend.AddEntry(h_pur_el_pt[2], "electron FSR purity", "lp")
+legend.Draw()
 
+h_pur_mu_pt[1].GetXaxis().SetTitle("pT_{lepton} [GeV]")
+c7= TCanvas("lepton pT true FSR","lepton pT true FSR",800,800)
+h_pur_mu_pt[1].GetYaxis().SetTitle("Entries")
+h_pur_mu_pt[1].SetMarkerStyle(20)
+h_pur_mu_pt[1].Draw()
+
+h_pur_el_pt[1].SetMarkerStyle(4)
+h_pur_el_pt[1].SetLineColor(kRed)
+h_pur_el_pt[1].Draw("same")
+
+legend1 = TLegend()
+legend1.AddEntry(h_pur_mu_pt[1], "muon pT (true FSR)", "lp")
+legend1.AddEntry(h_pur_el_pt[1], "electron pT (true FSR)", "lp")
+legend1.Draw()
