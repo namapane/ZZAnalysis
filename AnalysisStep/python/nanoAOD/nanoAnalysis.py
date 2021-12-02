@@ -27,8 +27,8 @@ DEBUG = False
 DUMP = True          # dump candidates
 isMC = False         # analyze for gen info
 printGenHist = False # print MC history
-runMELA = True
-bestCandByMELA = True # requires also runMELA=True
+runMELA = False #FIXME
+bestCandByMELA = False # requires also runMELA=True
 
 conf = dict(
     muPt = 5.,
@@ -84,6 +84,27 @@ def Mother (part, gen) :
     if idxMother >=0 : idMother = gen[idxMother].pdgId
     return idxMother, idMother
 
+class Plotter(Module):
+    def __init__(self):
+        self.writeHistFile=False
+
+    def beginJob(self):
+        pass
+
+    def endJob(self):
+        pass
+
+    def analyze(self, event):
+        print("Plotter: ", event.ZZ_mass)
+
+
+class ZProducer(Module):
+    def __init__(self):
+        self.writeHistFile=False
+
+    def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
+        self.out = wrappedOutputTree
+            
 
 class ZZProducer(Module):
     def __init__(self):
@@ -131,9 +152,17 @@ class ZZProducer(Module):
 #    def endJob(self):
 #        pass
 
-#    def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
-#        self.out = wrappedOutputTree
-#        self.out.branch("EventMass", "F")
+    def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
+        self.out = wrappedOutputTree
+        self.out.branch("ZZ_mass", "F")
+        self.out.branch("ZZ_massPreFSR", "F")
+        self.out.branch("Z1_mass", "F")
+        self.out.branch("Z2_mass", "F")
+        self.out.branch("W_pu", "F")
+        self.out.branch("W_dataMC", "F")
+        
+        # gen weight = Generator_weight
+
 
 #    def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
 #        pass
@@ -445,6 +474,15 @@ class ZZProducer(Module):
 
                 # Sync-style printout
                 if DUMP: print ('{}:{:.3f}:{:.3f}:{:.3f}:{:.3f}:{}:{:.6g}'.format(eventId, ZZmass, bestZZ[0][0], bestZZ[1][0], ZZmass_lep, ZZFlav, Dbkgkin)) #event, ZZMass, Z1Mass, Z2Mass, ZZMassPreFSR, ZZFlav, Dbkgkin
+
+                ### Fill output tree
+                self.out.fillBranch("ZZ_mass", ZZmass)
+                self.out.fillBranch("ZZ_massPreFSR", 0.)
+                self.out.fillBranch("Z1_mass", 0.)
+                self.out.fillBranch("Z2_mass", 0.)
+                self.out.fillBranch("W_pu", 1.)
+                self.out.fillBranch("W_dataMC", 1.)
+
                 
                 ### Fill plots for best candidate
                 self.h_ZZMass.Fill(ZZmass) # Mass
@@ -457,10 +495,9 @@ class ZZProducer(Module):
                 if(hasFSR): # for FSR events only
                     self.hZZFSR[pIdx].Fill(ZZmass)
                     self.hZZ_ncF[pIdx].Fill(ZZmass_lep)
+                return True
 
-
-        return True
-
+        return False # No candidate found, do not write event
 
 
 muLooseId = lambda l : l.pt > conf["muPt"] and abs(l.eta) < 2.4 and abs(l.dxy) < conf["dxy"] and abs(l.dz) < conf["dz"] and (l.isGlobal or l.isTracker) #Note: FSR-crrected isolation has also to be applied #FIXME: l.nStations>0) is not equivalent to numberOfMatches>0); also, muonBestTrackType!=2 is not available
@@ -470,7 +507,7 @@ muTightId = lambda l : muLooseId(l) and (l.isPFcand or (l.highPtId>0 and l.pt>20
     
 eleTightId =  lambda l : eleLooseId(l) and abs(l.sip3d) < conf["sip3d"] and passEleBDT(l.pt, l.eta+l.deltaEtaSC, l.mvaFall17V2Iso) #FIXME: We use different BDTs for 2016 and 2018
 
-ZZSequence = [ZZProducer()]
+ZZSequence = [ZZProducer(), Plotter()]
 
 preselection = ("nMuon + nElectron >= 2 &&" +
                 "Sum$(Muon_pt > {muPt}) +" +
@@ -491,5 +528,5 @@ files = [localstore+"/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV
 #High mass sample
 #files = [aaastore+"/store/mc/RunIIAutumn18NanoAODv7/VBF_HToZZTo4L_M3000_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/60000/A82C31DF-0A6F-B44F-857B-89BFD72CEFEA.root"]
 
-p = PostProcessor(".", files, cut=preselection, branchsel=None, modules=ZZSequence, noOut=True, histFileName="histOut.root", histDirName="plots", maxEntries=0)
+p = PostProcessor(".", files, cut=preselection, branchsel=None, modules=ZZSequence, noOut=False, histFileName="histOut.root", histDirName="plots", maxEntries=1000)
 p.run()
