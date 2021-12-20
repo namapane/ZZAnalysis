@@ -64,10 +64,11 @@ class ZZCand:
         self.KD = p_GG_SIG_ghg2_1_ghz1_1_JHUGen/(p_GG_SIG_ghg2_1_ghz1_1_JHUGen+p_QQB_BKG_MCFM) # without c-constants, for candidate sorting
 
 class ZZProducer(Module):
-    def __init__(self, runMELA, bestCandByMELA, XS, cuts):
+    def __init__(self, runMELA, bestCandByMELA, cuts, isMC, XS):
         self.writeHistFile=True
         self.runMELA=runMELA
         self.bestCandByMELA = bestCandByMELA
+        self.isMC = isMC
         self.XS = XS
         self.muLooseId=cuts["muLooseId"]
         self.eleLooseId=cuts["eleLooseId"]
@@ -96,8 +97,9 @@ class ZZProducer(Module):
         self.out.branch("ZZ_massPreFSR", "F")
         self.out.branch("Z1_mass", "F")
         self.out.branch("Z2_mass", "F")
-        self.out.branch("W_pu", "F")
-        self.out.branch("W_dataMC", "F")
+        if self.isMC :
+            self.out.branch("W_pu", "F")
+            self.out.branch("W_dataMC", "F")
         self.out.branch("W_total", "F")
 
 
@@ -259,18 +261,22 @@ class ZZProducer(Module):
                 if DUMP: print ('{}:{:.3f}:{:.3f}:{:.3f}:{:.3f}:{}:{:.6g}'.format(eventId, ZZ_mass, Z1.M, Z2.M, ZZ_massPreFSR, ZZFlav, Dbkgkin)) #event, ZZMass, Z1Mass, Z2Mass, ZZMassPreFSR, ZZFlav, Dbkgkin
 
 
-                # Compute weights
-                w_dataMC = 1. #FIXME
-                w_pu = 1. #FIXME This will have to me moved in a further module.
-                w_total = event.Generator_weight*w_dataMC*w_pu*self.XS
-
                 ### Fill output tree
                 self.out.fillBranch("ZZ_mass", ZZ_mass)
                 self.out.fillBranch("ZZ_massPreFSR", ZZ_massPreFSR)
                 self.out.fillBranch("Z1_mass", Z1.M)
                 self.out.fillBranch("Z2_mass", Z2.M)
-                self.out.fillBranch("W_pu", w_pu)
-                self.out.fillBranch("W_dataMC", w_dataMC)
+
+                # Compute weights #FIXME to be moved to a separate module
+                w_total = 1.
+
+                if self.isMC: 
+                    w_dataMC = 1. 
+                    w_pu = 1. #FIXME This will have to me moved in a further module.
+                    w_total = event.Generator_weight*w_dataMC*w_pu*self.XS
+                    self.out.fillBranch("W_pu", w_pu)
+                    self.out.fillBranch("W_dataMC", w_dataMC)
+                # Write this for data as well for simplicity
                 self.out.fillBranch("W_total", w_total)
                                 
                 ### Fill plots for best candidate

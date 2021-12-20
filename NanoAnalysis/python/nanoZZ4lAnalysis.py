@@ -66,7 +66,7 @@ jsonFile = getConf("jsonFile", None)
 
 ZZSequence = [triggerAndSkim(isMC=IsMC, PD=PD, era=LEPTON_SETUP),
               lepFiller(cuts),
-              ZZProducer(runMELA, bestCandByMELA, XSEC, cuts), #FIXME remove cuts
+              ZZProducer(runMELA, bestCandByMELA, cuts, IsMC, XSEC),
 #              dumpEvents(dump=False)
               ]
 
@@ -74,15 +74,21 @@ ZZSequence = [triggerAndSkim(isMC=IsMC, PD=PD, era=LEPTON_SETUP),
 if IsMC :
     from ZZAnalysis.NanoAnalysis.mcTruthAnalyzer import *
     ZZSequence.insert(0, mcTruthAnalyzer(dump=False))
+#    ZZSequence.append(weightProducer())
 
 
-branchsel_in = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_in.txt"
+branchsel_in = ""
+if IsMC:
+    branchsel_in = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_in_MC.txt"
+else:
+    branchsel_in = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_in_Data.txt"
+
 branchsel_out = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_out.txt"
 
 
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
 p = PostProcessor(".", fileNames,
-                  prefetch=False, longTermCache=False,
+                  prefetch=False, longTermCache=False, #FIXME prefetch should be used for remote samples
                   cut=preselection, # pre-selection cuts (to speed up processing)
                   branchsel=branchsel_in, # select branches to be read
                   outputbranchsel=branchsel_out, # select branches to be written out
