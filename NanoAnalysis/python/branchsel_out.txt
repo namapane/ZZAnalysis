@@ -1,4 +1,7 @@
 drop * # start with all
+keep run
+keep event
+keep luminosityBlock
 #keep LHE*
 #keep Generator*
 #keep Flag*
@@ -11,3 +14,4 @@ keep Muon*
 keep FsrPhoton*
 keep Z* # Z and ZZ
 keep W_* # custom weights
+keep GenZZFinalState

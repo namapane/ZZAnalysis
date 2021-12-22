@@ -26,13 +26,6 @@ def bestCandByZ1Z2(a,b): # a=abs(MZ1-MZ); b-sum(PT)
         else :
             return 1
 
-#FIXME
-# def bestCandByDbkgKin(a,b):
-#     if abs((a[0][4]+a[1][4]).M() - (b[0][4]+b[1][4]).M())<1e-4 and a[0][7]*a[1][7]==b[0][7]*b[1][7]: # Equivalent: same masss (tolerance 100 keV) and same FS -> same leptons and FSR
-#         return bestCandByZ1Z2(a,b)
-#     if a[4] > b [4] : return 1 # choose by best dbkgkin
-#     else: return -1    
-
 def bestCandByDbkgKin(a,b):
     if abs((a.p4).M() - (b.p4).M())<1e-4 and a.Z1.FS*a.Z2.FS==b.Z1.FS*b.Z2.FS: # Equivalent: same masss (tolerance 100 keV) and same FS -> same leptons and FSR
         return bestCandByZ1Z2(a,b)
@@ -98,13 +91,11 @@ class ZZProducer(Module):
         self.out.branch("Z1_mass", "F")
         self.out.branch("Z2_mass", "F")
         if self.isMC :
+            # gen weight = Generator_weight
             self.out.branch("W_pu", "F")
             self.out.branch("W_dataMC", "F")
         self.out.branch("W_total", "F")
 
-
-        
-        # gen weight = Generator_weight
 
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
@@ -138,7 +129,7 @@ class ZZProducer(Module):
                     fsr2_p4 = fsrPhotons[l2.myFsrPhotonIdx].p4() if l2.myFsrPhotonIdx>=0 else ROOT.TLorentzVector()
                     Z_p4 = l1.p4() + l2.p4() + fsr1_p4 + fsr2_p4
                     zmass = Z_p4.M()
-                    if DEBUG: print('Z={:.4g} pt1={:.3g} pt2={:.3g}'.format(zmass, l1.pt, l2.pt))
+                    if DEBUG: print('Z={:.4g} pt1={:.3g} pt2={:.3g}'.format(zmass, l1.pt, l2.pt), l1.myFsrPhotonIdx,  l2.myFsrPhotonIdx)
                     if (zmass>12. and zmass<120.):
                         # FIXME: we may want to set a default order for i, j.
                         Zs.append(ZCand(Z_p4, i, j, l1.myFsrPhotonIdx,  l2.myFsrPhotonIdx, l1.pt+l2.pt, l1.pdgId*l2.pdgId))
@@ -178,14 +169,20 @@ class ZZProducer(Module):
                     lIdxs  =[Z1.l1Idx,Z1.l2Idx,Z2.l1Idx,Z2.l2Idx]
                     # indexes of corresponding FRSs
                     fsrIdxs =[Z1.fsr1Idx,Z1.fsr2Idx,Z2.fsr1Idx,Z2.fsr2Idx] 
-                    
-                    lepPts =[]
+
+                    lepPts = []
+                    dressedLepP4s = [] #p4 including FSR
                     # QCD suppression on all OS pairs, regardelss of flavour
                     passQCD = True
                     for k in range(0,4):
-                        lepPts.append(leps[lIdxs[k]].pt)
+                        kLepIdx = lIdxs[k]
+                        lepPts.append(leps[kLepIdx].pt)
+                        lep_p4=leps[kLepIdx].p4()
+                        if fsrIdxs[k]>=0 : lep_p4 += fsrPhotons[fsrIdxs[k]].p4()
+                        dressedLepP4s.append(lep_p4)
                         for l in range (k+1,4):
-                            if leps[lIdxs[k]].pdgId*leps[lIdxs[l]].pdgId < 0 and (leps[lIdxs[k]].p4()+leps[lIdxs[l]].p4()).M()<=4.: passQCD = False
+                            lLepIdx = lIdxs[l]
+                            if leps[kLepIdx].pdgId*leps[lLepIdx].pdgId < 0 and (leps[kLepIdx].p4()+leps[lLepIdx].p4()).M()<=4.: passQCD = False
                     if not passQCD: continue
 
                     Z2ptsum=lepPts[2]+lepPts[3]
@@ -198,11 +195,11 @@ class ZZProducer(Module):
                     if abs(leps[lIdxs[0]].pdgId) == abs(leps[lIdxs[2]].pdgId):
                         mZa, mZb = 0., 0.
                         if leps[lIdxs[0]].pdgId == -leps[lIdxs[2]].pdgId:
-                            mZa=(leps[lIdxs[0]].p4()+leps[lIdxs[2]].p4()).M()
-                            mZb=(leps[lIdxs[1]].p4()+leps[lIdxs[3]].p4()).M()
+                            mZa=(dressedLepP4s[0]+dressedLepP4s[2]).M()
+                            mZb=(dressedLepP4s[1]+dressedLepP4s[3]).M()
                         elif leps[lIdxs[0]].pdgId == -leps[lIdxs[3]].pdgId:
-                            mZa=(leps[lIdxs[0]].p4()+leps[lIdxs[3]].p4()).M()
-                            mZb=(leps[lIdxs[1]].p4()+leps[lIdxs[2]].p4()).M()
+                            mZa=(dressedLepP4s[0]+dressedLepP4s[3]).M()
+                            mZb=(dressedLepP4s[1]+dressedLepP4s[2]).M()
                         if (abs(mZa-ZmassValue)>abs(mZb-ZmassValue)) : mZa, mZb = mZb, mZa
                         if (abs(mZa-ZmassValue)<abs(Z1.M-ZmassValue)) and mZb < 12.: continue
 
@@ -213,9 +210,7 @@ class ZZProducer(Module):
                         daughters = SimpleParticleCollection_t()
                         for ilep in range (0,4):
                             lep = leps[lIdxs[ilep]]
-                            lep_p4 = lep.p4()
-                            if fsrIdxs[ilep]>=0 : lep_p4 += fsrPhotons[fsrIdxs[ilep]].p4
-                            daughters.push_back(SimpleParticle_t(lep.pdgId, lep.p4()))                         
+                            daughters.push_back(SimpleParticle_t(lep.pdgId, dressedLepP4s[ilep]))
                             #print("MELA ", daughters[ilep].first, daughters[ilep].second.Pt(), daughters[ilep].second.Eta(), daughters[ilep].second.Phi(),daughters[ilep].second.M())
                         self.mela.setInputEvent(daughters, 0, 0, 0)
                         self.mela.setProcess(TVar.HSMHiggs, TVar.JHUGen, TVar.ZZGG)

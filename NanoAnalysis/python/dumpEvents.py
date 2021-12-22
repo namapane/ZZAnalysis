@@ -10,14 +10,16 @@ charge={1:"+", -1:"-"}
 class dumpEvents(Module):
     def __init__(self, dump=False):
         self.writeHistFile = False
-        self.dump=False
-
+        self.dump=dump
+        
     def analyze(self, event):
         if not self.dump: return True
 
         electrons = Collection(event, "Electron")
         muons = Collection(event, "Muon")
         fsrPhotons = Collection(event, "FsrPhoton")
+
+        eventId='{}:{}:{}'.format(event.run,event.luminosityBlock,event.event)
 
         for i,lep in enumerate(muons):
 #            if not muLooseId(lep) and not DEBUG : continue # Print only leptons passing loose ID
@@ -39,10 +41,10 @@ class dumpEvents(Module):
                   end="")
             print(' combRelIsoPF={:.3g} combRelIsoPFFSRCorr={:.3g}'.format(lep.pfRelIso03_all, lep.pfRelIso03FsrCorr),
                   end="")
-            print(' isLoose={} isTight={}'.format(int(muLooseId(lep)),int(muTightId(lep))),
+            print(' isLoose={} isTight={}'.format(lep.isLoose,lep.isTightIso),
                   end="")
-            if (lep.fsrPhotonIdx>=0):
-                fsr=fsrPhotons[lep.fsrPhotonIdx]
+            if (lep.myFsrPhotonIdx>=0):
+                fsr=fsrPhotons[lep.myFsrPhotonIdx]
                 print(' FSR: pt={:.3g} eta={:.3g}, phi={:.3g}, dREt2={:.3g}, Iso={:.3g}, true={}'.format(fsr.pt, fsr.eta, fsr.phi, fsr.dROverEt2, fsr.relIso03, (fsr.genFsrIdx>=0)))
             else:
                 print()
