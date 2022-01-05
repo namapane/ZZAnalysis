@@ -12,13 +12,13 @@ from ZZAnalysis.NanoAnalysis.tools import setConf, getConf
 from ZZAnalysis.NanoAnalysis.triggerAndSkim import * # Trigger requirements are defined here
 from ZZAnalysis.NanoAnalysis.lepFiller import *
 from ZZAnalysis.NanoAnalysis.ZZFiller import *
-from ZZAnalysis.NanoAnalysis.dumpEvents import dumpEvents
 
 #import os
 #import sys
 
 ### Definition of analysis cuts
 cuts = dict(
+    ### lepton IDs
     muPt = 5.,
     elePt = 7.,
     relIso = 0.35,
@@ -35,7 +35,6 @@ cuts = dict(
     eleLooseId = (lambda l : l.pt > cuts["elePt"] and abs(l.eta) < 2.5 and abs(l.dxy) < cuts["dxy"] and abs(l.dz) < cuts["dz"] and abs(l.sip3d) < cuts["sip3d"]),
     eleTightId =  (lambda l : cuts["eleLooseId"](l) and abs(l.sip3d) < cuts["sip3d"] and passEleBDT(l.pt, l.eta+l.deltaEtaSC, l.mvaFall17V2Iso)), #FIXME: We use different BDT definitions for 2016 and 2018
 
-    test = (lambda x : cuts["elePt"]),
     )
 
 
@@ -50,10 +49,10 @@ bestCandByMELA = getConf("bestCandByMELA", False) # requires also runMELA=True
 
 # Preselection to speed up processing.
 # Note that this is done before muon momentum scale calibration
-preselection = getConf("preselection", "nMuon + nElectron >= 3 &&" +
+preselection = getConf("preselection", "nMuon + nElectron >= 4 &&" +
                        "Sum$(Muon_pt > {muPt}) +" +
                        "Sum$(Electron_pt > {elePt})" +
-                       ">= 3").format(**cuts)
+                       ">= 4").format(**cuts)
 
 store = getConf("store","") #/eos/cms/ for files available on eos;
 fileNames = getConf("fileNames", ["/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root",]) # sample ggH125 file
@@ -65,11 +64,9 @@ jsonFile = getConf("jsonFile", None)
 
 
 ZZSequence = [triggerAndSkim(isMC=IsMC, PD=PD, era=LEPTON_SETUP),
-              lepFiller(cuts),
-              ZZProducer(runMELA, bestCandByMELA, cuts, IsMC, XSEC),
-#              dumpEvents(dump=False)
+              lepFiller(cuts), 
+              ZZFiller(runMELA, bestCandByMELA, IsMC, XSEC),
               ]
-
 
 if IsMC :
     from ZZAnalysis.NanoAnalysis.mcTruthAnalyzer import *

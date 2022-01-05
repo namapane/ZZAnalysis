@@ -18,6 +18,15 @@ setConf("fileNames",[
 #         "/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/270000/1DA1D554-E919-0146-9873-77E0B1B08DB5.root",
          ])
 
+# FIXME custom-reprocessed nanoAOD file with fixed FSR
+#setConf("store","")
+#setConf("fileNames",["/afs/cern.ch/work/n/namapane/H4lnano/CMSSW_10_2_22/src/PhysicsTools/ggH125_nano.root"])
+
+setConf("runMELA", False)
+setConf("bestCandByMELA", False) # forces also runMELA=True
+
+
+
 ### ZH125
 # setConf("SAMPLENAME", "ZH125")
 # setConf("store","root://cms-xrd-global.cern.ch/")
@@ -41,10 +50,16 @@ setConf("fileNames",[
 #setConf("preselection","event.eventId == 840922")
 
 
-### this should be done after all customizations
+### This should be done AFTER all customizations (setConf calls)
 from ZZAnalysis.NanoAnalysis.nanoZZ4lAnalysis import *
-# Edit postprocessor parameters as necessary
-p.haddFileName=getConf("SAMPLENAME", "ZZAnalysis.root")+".root"
+
+# Tweak postprocessor parameters as necessary
+#p.haddFileName=getConf("SAMPLENAME", "ZZAnalysis")+".root"
+p.haddFileName=None
+
+
+#from ZZAnalysis.NanoAnalysis.dumpEvents import dumpEvents
+#p.modules.append(dumpEvents(dump=True)) # Print out detailed candidate information
 #p.maxEntries = 1000
 
 p.run()
