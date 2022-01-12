@@ -41,11 +41,14 @@ cuts = dict(
 ### Get processing customizations if defined by includer macro; use defaults otherwise 
 SAMPLENAME = getConf("SAMPLENAME", "test")
 LEPTON_SETUP = getConf("LEPTON_SETUP", 2018)
+if not (LEPTON_SETUP == 2016 or LEPTON_SETUP == 2017 or LEPTON_SETUP == 2018) :
+    print("Invalid LEPTON_SETUP", LEPTON_SETUP)
+    exit(1)
 IsMC = getConf("IsMC", True)
 PD = getConf("PD", "")
 XSEC = getConf("XSEC", 1.)
-runMELA = getConf("runMELA", False)
-bestCandByMELA = getConf("bestCandByMELA", False) # requires also runMELA=True
+runMELA = getConf("runMELA", True)
+bestCandByMELA = getConf("bestCandByMELA", True) # requires also runMELA=True
 
 # Preselection to speed up processing.
 # Note that this is done before muon momentum scale calibration
@@ -61,18 +64,26 @@ for i, file in enumerate(fileNames):
 jsonFile = getConf("jsonFile", None)
 
 
+from PhysicsTools.NanoAODTools.postprocessing.modules.common.muonScaleResProducer import muonScaleRes2016, muonScaleRes2017, muonScaleRes2018
+muonScaleRes = {2016:muonScaleRes2016, 2017:muonScaleRes2017, 2018:muonScaleRes2018}
 
 
 ZZSequence = [triggerAndSkim(isMC=IsMC, PD=PD, era=LEPTON_SETUP),
+              muonScaleRes[LEPTON_SETUP](),
               lepFiller(cuts), 
-              ZZFiller(runMELA, bestCandByMELA, IsMC, XSEC),
+              ZZFiller(runMELA, bestCandByMELA, IsMC),
               ]
 
 if IsMC :
     from ZZAnalysis.NanoAnalysis.mcTruthAnalyzer import *
     ZZSequence.insert(0, mcTruthAnalyzer(dump=False))
-#    ZZSequence.append(weightProducer())
 
+    from PhysicsTools.NanoAODTools.postprocessing.modules.common.puWeightProducer import puWeight_2016, puWeight_2017, puWeight_2018
+    puWeight = {2016:puWeight_2016, 2017:puWeight_2017, 2018:puWeight_2018} # FIXME official weights are slightly different than the one we use (checked for 2018)
+    ZZSequence.append(puWeight[LEPTON_SETUP]())
+
+    from ZZAnalysis.NanoAnalysis.weightFiller import weightFiller
+    ZZSequence.append(weightFiller(XSEC))
 
 branchsel_in = ""
 if IsMC:

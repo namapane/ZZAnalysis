@@ -13,7 +13,6 @@ from JHUGenMELA.MELA.mela import Mela, SimpleParticle_t, SimpleParticleCollectio
 
 ZmassValue = 91.1876;
 DEBUG = False
-DUMP = True
 
 ### Comparators to select the best candidate in the event 
 def bestCandByZ1Z2(a,b): # Choose by abs(MZ1-MZ), or sum(PT) if same Z1
@@ -76,12 +75,11 @@ class ZZCand:
 
 
 class ZZFiller(Module):
-    def __init__(self, runMELA, bestCandByMELA, isMC, XS):
+    def __init__(self, runMELA, bestCandByMELA, isMC):
         self.writeHistFile = True
         self.runMELA = runMELA or bestCandByMELA
         self.bestCandByMELA = bestCandByMELA        
         self.isMC = isMC
-        self.XS = XS
 
         if self.runMELA :
             self.mela = Mela(13, 125, TVar.ERROR)
@@ -90,7 +88,8 @@ class ZZFiller(Module):
             self.lib.D_bkg_kin.restype = c_float
 
     def beginJob(self,histFile=None, histDirName=None):
-        Module.beginJob(self, histFile, histDirName)
+        Module.beginJob(self, histFile, histDirName+"_ZZFiller")
+        self.histFile=None # Hack to prevent histFile to be closed before other modules write their histograms
 
         # Histograms
         self.h_ZZMass = ROOT.TH1F('ZZMass','ZZMass',130,70,200)
@@ -99,15 +98,18 @@ class ZZFiller(Module):
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
+        self.out.branch("Z1_mass", "F")
+        self.out.branch("Z1_l1Idx", "F")
+        self.out.branch("Z1_l2Idx", "F")
+        self.out.branch("Z2_mass", "F")
+        self.out.branch("Z2_l1Idx", "F")
+        self.out.branch("Z2_l2Idx", "F")
         self.out.branch("ZZ_mass", "F")
         self.out.branch("ZZ_massPreFSR", "F")
-        self.out.branch("Z1_mass", "F")
-        self.out.branch("Z2_mass", "F")
+        self.out.branch("ZZ_Dbkgkin", "F")
+
         if self.isMC :
-            # gen weight = Generator_weight
-            self.out.branch("W_pu", "F")
-            self.out.branch("W_dataMC", "F")
-        self.out.branch("W_total", "F")
+            self.out.branch("ZZ_dataMCWeight", "F")
 
 
     def analyze(self, event):
@@ -176,7 +178,7 @@ class ZZFiller(Module):
                     for k in range(0,4):
                         lepPts.append(zzleps[k].pt)
                         for l in range (k+1,4):
-                            if zzleps[k].pdgId*leps[l].pdgId < 0 and (leps[k].p4()+leps[l].p4()).M()<=4.:
+                            if zzleps[k].pdgId*zzleps[l].pdgId < 0 and (zzleps[k].p4()+zzleps[l].p4()).M()<=4.:
                                 passQCD = False
                                 break
                     if not passQCD: continue
@@ -240,28 +242,25 @@ class ZZFiller(Module):
                 if self.runMELA:
                     Dbkgkin = self.lib.D_bkg_kin(c_float(bestZZ.p_GG_SIG_ghg2_1_ghz1_1_JHUGen), c_float(bestZZ.p_QQB_BKG_MCFM), c_int(int(ZZFlav)),c_float(ZZ_mass)) #including c-constants
 
-                # Sync-style printout
-                if DUMP: print ('{}:{:.3f}:{:.3f}:{:.3f}:{:.3f}:{}:{:.6g}'.format(eventId, ZZ_mass, Z1.M, Z2.M, ZZ_massPreFSR, ZZFlav, Dbkgkin)) #event, ZZMass, Z1Mass, Z2Mass, ZZMassPreFSR, ZZFlav, Dbkgkin
-
 
                 ### Fill output tree
                 self.out.fillBranch("ZZ_mass", ZZ_mass)
                 self.out.fillBranch("ZZ_massPreFSR", ZZ_massPreFSR)
                 self.out.fillBranch("Z1_mass", Z1.M)
                 self.out.fillBranch("Z2_mass", Z2.M)
+                self.out.fillBranch("Z1_l1Idx", Z1.l1Idx)
+                self.out.fillBranch("Z1_l2Idx", Z1.l2Idx)
+                self.out.fillBranch("Z2_l1Idx", Z2.l1Idx)
+                self.out.fillBranch("Z2_l2Idx", Z2.l2Idx)
+                self.out.fillBranch("ZZ_Dbkgkin", Dbkgkin)                
 
                 # Compute weights #FIXME to be moved to a separate module
                 w_total = 1.
 
                 if self.isMC: 
                     w_dataMC = 1. 
-                    w_pu = 1. #FIXME This will have to me moved in a further module.
-                    w_total = event.Generator_weight*w_dataMC*w_pu*self.XS
-                    self.out.fillBranch("W_pu", w_pu)
-                    self.out.fillBranch("W_dataMC", w_dataMC)
-                # Write this for data as well for simplicity
-                self.out.fillBranch("W_total", w_total)
-                                
+                    self.out.fillBranch("ZZ_dataMCWeight", w_dataMC) 
+            
                 ### Fill plots for best candidate
                 self.h_ZZMass.Fill(ZZ_mass) # Mass
 
