@@ -29,16 +29,15 @@ cuts = dict(
     fsr_Iso = 1.8,
     # Loose IDs includes SIP, but a version without SIP will be required for relaxed-SIP CRs
     muLooseId = (lambda l : l.pt > cuts["muPt"] and abs(l.eta) < 2.4 and abs(l.dxy) < cuts["dxy"] and abs(l.dz) < cuts["dz"] and abs(l.sip3d) < cuts["sip3d"] and (l.isGlobal or l.isTracker)),  #FIXME: l.nStations>0) is not equivalent to numberOfMatches>0); also, muonBestTrackType!=2 is not available
-    muTightId = (lambda l : cuts["muLooseId"](l) and (l.isPFcand or (l.highPtId>0 and l.pt>200.))),  # Note: FSR-corrected isolation has also to be applied in addition to tight ID  #FIXME: highPtId does not match exactly our definition.     
-
+    muTightId = (lambda l, era : cuts["muLooseId"](l) and (l.isPFcand or (l.highPtId>0 and l.pt>200.))),  # Note: FSR-corrected isolation has also to be applied in addition to tight ID  #FIXME: highPtId does not match exactly our definition.     
 
     eleLooseId = (lambda l : l.pt > cuts["elePt"] and abs(l.eta) < 2.5 and abs(l.dxy) < cuts["dxy"] and abs(l.dz) < cuts["dz"] and abs(l.sip3d) < cuts["sip3d"]),
-    eleTightId =  (lambda l : cuts["eleLooseId"](l) and abs(l.sip3d) < cuts["sip3d"] and passEleBDT(l.pt, l.eta+l.deltaEtaSC, l.mvaFall17V2Iso)), #FIXME: We use different BDT definitions for 2016 and 2018
+    eleTightId =  (lambda l, era : cuts["eleLooseId"](l) and abs(l.sip3d) < cuts["sip3d"] and passEleBDT(l, era)), #FIXME: BDT definition is available only for 2017!
 
     )
 
 
-### Get processing customizations if defined by includer macro; use defaults otherwise 
+### Get processing customizations if defined by including .py; use defaults otherwise 
 SAMPLENAME = getConf("SAMPLENAME", "test")
 LEPTON_SETUP = getConf("LEPTON_SETUP", 2018)
 if not (LEPTON_SETUP == 2016 or LEPTON_SETUP == 2017 or LEPTON_SETUP == 2018) :
@@ -47,13 +46,13 @@ if not (LEPTON_SETUP == 2016 or LEPTON_SETUP == 2017 or LEPTON_SETUP == 2018) :
 IsMC = getConf("IsMC", True)
 PD = getConf("PD", "")
 XSEC = getConf("XSEC", 1.)
+SYNCMODE = getConf("SYNCMODE", False)
 runMELA = getConf("runMELA", True)
 bestCandByMELA = getConf("bestCandByMELA", True) # requires also runMELA=True
 
 # Preselection to speed up processing.
-# Note that this is done before muon momentum scale calibration
 preselection = getConf("preselection", "nMuon + nElectron >= 4 &&" +
-                       "Sum$(Muon_pt > {muPt}) +" +
+                       "Sum$(Muon_pt > {muPt}-2.) +" + # Allow for variations due to scale calib
                        "Sum$(Electron_pt > {elePt})" +
                        ">= 4").format(**cuts)
 
@@ -69,8 +68,8 @@ muonScaleRes = {2016:muonScaleRes2016, 2017:muonScaleRes2017, 2018:muonScaleRes2
 
 
 ZZSequence = [triggerAndSkim(isMC=IsMC, PD=PD, era=LEPTON_SETUP),
-              muonScaleRes[LEPTON_SETUP](),
-              lepFiller(cuts), 
+              muonScaleRes[LEPTON_SETUP](overwritePt=True, syncMode=SYNCMODE), # FIXME requires custom muonScaleResProducer.py
+              lepFiller(cuts, LEPTON_SETUP), 
               ZZFiller(runMELA, bestCandByMELA, IsMC),
               ]
 

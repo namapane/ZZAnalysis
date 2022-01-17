@@ -4,28 +4,31 @@ from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collect
 from PhysicsTools.NanoAODTools.postprocessing.tools import deltaR
 
 
-def passEleBDT(pt, SCeta, BDT, era = "2018") :
-    fSCeta = abs(SCeta)  
-    # FIXME: This should be era-dependent.
-    # Using 2017 WP for ElectronMVAEstimatorRun2Fall17IsoV2Values since other BDTs are not available in nanoAOD
+def passEleBDT(ele, era) :
+    # FIXME: This should be era-dependent. Using 2017 WP for ElectronMVAEstimatorRun2Fall17IsoV2Values since other BDTs are not available in nanoAOD.
+    # if era == 2017 : 
+    pt = ele.pt
+    fSCeta = abs(ele.eta + ele.deltaEtaSC)
+    BDT = ele.mvaFall17V2Iso
     return (pt<=10. and ((fSCeta<0.8 and BDT > 0.85216885148) or (fSCeta>=0.8 and fSCeta<1.479 and BDT >  0.82684550976) or (fSCeta>=1.479 and BDT >  0.86937630022))) or (pt>10. and  ((fSCeta<0.8 and BDT >  0.98248928759) or (fSCeta>=0.8 and fSCeta<1.479 and BDT >  0.96919224579) or (fSCeta>=1.479 and BDT >  0.79349796445)))
 
 
 class lepFiller(Module):
-    def __init__(self, cuts):
+    def __init__(self, cuts, era):
         self.writeHistFile=False
         self.cuts = cuts
         self.muLooseId = cuts["muLooseId"]
         self.muTightId = cuts["muTightId"]
         self.eleLooseId = cuts["eleLooseId"]
         self.eleTightId = cuts["eleTightId"]
-        
+        self.era = era
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree        
         
         self.out.branch("FsrPhoton_mass", "F", lenVar="nFsrPhoton") # Hack so that photon.p4() works
 
+        self.out.branch("Electron_isBDT", "O", lenVar="nElectron")
         self.out.branch("Electron_isLoose", "O", lenVar="nElectron")
         self.out.branch("Electron_isTightIso", "O", lenVar="nElectron")
         self.out.branch("Electron_myFsrPhotonIdx", "I", lenVar="nElectron")
@@ -56,10 +59,11 @@ class lepFiller(Module):
         fsrPhotons = Collection(event, "FsrPhoton")
 
         # IDs (no iso)
+        eleBDT = list(passEleBDT(e, self.era) for e in electrons)
         eleLoose = list(self.eleLooseId(e) for e in electrons)
         muLoose = list(self.muLooseId(m) for m in muons)
-        eleTight = list(self.eleTightId(e) for e in electrons)
-        muTight = list(self.muTightId(m) for m in muons)  
+        eleTight = list(self.eleTightId(e, self.era) for e in electrons)
+        muTight = list(self.muTightId(m, self.era) for m in muons)  
 
         # Skip events that do not contain enough tight leptons (note: for CRs, this should be modified)
         if (len(eleTight)+len(muTight)<4) : return False
@@ -134,6 +138,7 @@ class lepFiller(Module):
         fsrM = [0.]*len(fsrPhotons)
         self.out.fillBranch("FsrPhoton_mass", fsrM)
 
+        self.out.fillBranch("Electron_isBDT", eleBDT)
         self.out.fillBranch("Electron_isLoose", eleLoose)
         self.out.fillBranch("Electron_isTightIso", ele_tightIso)
         self.out.fillBranch("Electron_myFsrPhotonIdx", eleFsrPhotonIdx)

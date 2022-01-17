@@ -11,20 +11,21 @@ from ZZAnalysis.NanoAnalysis.tools import setConf, getConf
 ### ggH125
 setConf("SAMPLENAME", "ggH125")
 setConf("XSEC", 48.58*0.0002745)
-setConf("store","/eos/cms")
-setConf("fileNames",[
-         "/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root",
-#         "/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/100000/445F4788-F322-C443-AB54-699C7716976A.root",
-#         "/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/270000/1DA1D554-E919-0146-9873-77E0B1B08DB5.root",
-         ])
-
-# FIXME custom-reprocessed nanoAOD file with fixed FSR
-#setConf("store","")
-#setConf("fileNames",["/afs/cern.ch/work/n/namapane/H4lnano/CMSSW_10_2_22/src/PhysicsTools/ggH125_nano.root"])
-
 setConf("runMELA", False)
 setConf("bestCandByMELA", False) # forces also runMELA=True
+setConf("syncMode", True)
 
+# setConf("store","/eos/cms")
+# setConf("fileNames",[
+#          "/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root",
+#          "/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/100000/445F4788-F322-C443-AB54-699C7716976A.root",
+#          "/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/270000/1DA1D554-E919-0146-9873-77E0B1B08DB5.root",
+#          ])
+
+# FIXME custom-reprocessed nanoAOD file with updated FSR, corresponding to:
+# /store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root
+setConf("store","")
+setConf("fileNames",["/eos/user/n/namapane/H4lnano/ggH125_fixedFSR.root"])
 
 
 ### ZH125
@@ -45,21 +46,21 @@ setConf("bestCandByMELA", False) # forces also runMELA=True
 #         ["/store/mc/RunIIAutumn18NanoAODv7/VBF_HToZZTo4L_M3000_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/60000/A82C31DF-0A6F-B44F-857B-89BFD72CEFEA.root"])
 
 
-
 # Select specific events to debug
 #setConf("preselection","event.eventId == 840922")
 
 
-### This should be done AFTER all customizations (setConf calls)
+### This import should be done AFTER all customizations (setConf calls)
 from ZZAnalysis.NanoAnalysis.nanoZZ4lAnalysis import *
 
-# Tweak postprocessor parameters as necessary
+### Tweak postprocessor parameters as necessary
 #p.haddFileName=getConf("SAMPLENAME", "ZZAnalysis")+".root"
 p.haddFileName=None
 
-
+# Print out detailed candidate information
 #from ZZAnalysis.NanoAnalysis.dumpEvents import dumpEvents
-#p.modules.append(dumpEvents(dump=True)) # Print out detailed candidate information
+#p.modules.append(dumpEvents(level=1)) 
+
 #p.maxEntries = 1000
 
-p.run()
+p.run() # Run the postprocessor
