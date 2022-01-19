@@ -87,15 +87,16 @@ if IsMC :
 branchsel_in = ""
 if IsMC:
     branchsel_in = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_in_MC.txt"
+    branchsel_out = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_out_MC.txt"
 else:
     branchsel_in = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_in_Data.txt"
+    branchsel_out = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_out_Data.txt"
 
-branchsel_out = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_out.txt"
 
 
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
 p = PostProcessor(".", fileNames,
-                  prefetch=False, longTermCache=False, #FIXME prefetch should be used for remote samples
+                  prefetch=True, longTermCache=False,
                   cut=preselection, # pre-selection cuts (to speed up processing)
                   branchsel=branchsel_in, # select branches to be read
                   outputbranchsel=branchsel_out, # select branches to be written out

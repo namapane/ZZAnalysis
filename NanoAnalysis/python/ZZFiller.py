@@ -53,7 +53,7 @@ class ZCand:
 
         self.M = self.p4.M() # cache the mass as it is used often
 
-    def sumpt() : # sum of lepton pTs, used to sort candidates
+    def sumpt(self) : # sum of lepton pTs, used to sort candidates
         return self.l1.pt+self.l2.pt
 
     def finalState(self) :

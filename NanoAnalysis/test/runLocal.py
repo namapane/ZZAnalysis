@@ -22,7 +22,7 @@ setConf("syncMode", True)
 #          "/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/270000/1DA1D554-E919-0146-9873-77E0B1B08DB5.root",
 #          ])
 
-# FIXME custom-reprocessed nanoAOD file with updated FSR, corresponding to:
+# Custom-reprocessed nanoAOD file with updated FSR, corresponding to:
 # /store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root
 setConf("store","")
 setConf("fileNames",["/eos/user/n/namapane/H4lnano/ggH125_fixedFSR.root"])
@@ -62,5 +62,6 @@ p.haddFileName=None
 #p.modules.append(dumpEvents(level=1)) 
 
 #p.maxEntries = 1000
+p.prefetch=False
 
 p.run() # Run the postprocessor
