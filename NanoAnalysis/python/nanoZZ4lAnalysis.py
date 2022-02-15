@@ -50,6 +50,17 @@ SYNCMODE = getConf("SYNCMODE", False)
 runMELA = getConf("runMELA", True)
 bestCandByMELA = getConf("bestCandByMELA", True) # requires also runMELA=True
 
+# ggH NNLOPS weight
+APPLY_QCD_GGF_UNCERT = getConf("APPLY_QCD_GGF_UNCERT", False) 
+
+# K factors for ggZZ (and old NLO ggH samples) 0:None; 1: NNLO/LO; 2: NNLO/NLO; 3: NLO/LO
+APPLY_K_NNLOQCD_ZZGG = getConf("APPLY_K_NNLOQCD_ZZGG", 0) 
+
+# K factors for qqZZ
+APPLY_K_NNLOQCD_ZZQQB = getConf("APPLY_K_NNLOQCD_ZZQQB", False) 
+APPLY_K_NNLOEW_ZZQQB  = getConf("APPLY_K_NNLOEW_ZZQQB", False) 
+
+
 # Preselection to speed up processing.
 preselection = getConf("preselection", "nMuon + nElectron >= 4 &&" +
                        "Sum$(Muon_pt > {muPt}-2.) +" + # Allow for variations due to scale calib
@@ -70,7 +81,7 @@ muonScaleRes = {2016:muonScaleRes2016, 2017:muonScaleRes2017, 2018:muonScaleRes2
 ZZSequence = [triggerAndSkim(isMC=IsMC, PD=PD, era=LEPTON_SETUP),
               muonScaleRes[LEPTON_SETUP](overwritePt=True, syncMode=SYNCMODE), # FIXME requires custom muonScaleResProducer.py
               lepFiller(cuts, LEPTON_SETUP), 
-              ZZFiller(runMELA, bestCandByMELA, IsMC),
+              ZZFiller(runMELA, bestCandByMELA, IsMC, LEPTON_SETUP),
               ]
 
 if IsMC :
@@ -82,7 +93,7 @@ if IsMC :
     ZZSequence.append(puWeight[LEPTON_SETUP]())
 
     from ZZAnalysis.NanoAnalysis.weightFiller import weightFiller
-    ZZSequence.append(weightFiller(XSEC))
+    ZZSequence.append(weightFiller(XSEC, APPLY_K_NNLOQCD_ZZGG, APPLY_K_NNLOQCD_ZZQQB, APPLY_K_NNLOEW_ZZQQB, APPLY_QCD_GGF_UNCERT))
 
 branchsel_in = ""
 if IsMC:

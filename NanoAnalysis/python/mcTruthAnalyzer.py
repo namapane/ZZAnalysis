@@ -2,6 +2,7 @@ from __future__ import print_function
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
 from PhysicsTools.NanoAODTools.postprocessing.tools import deltaR
+from ROOT import TLorentzVector
 
 ### Analyze MC Truth
 # Optionally dump MC history;
@@ -10,16 +11,6 @@ from PhysicsTools.NanoAODTools.postprocessing.tools import deltaR
 # -FsrPhoton_genFsrIdx: index of the closest gen FSR from Z->l (e, mu)
 # -GenHLeps (TBD)
 #
-
-# Find particle's real mother, skipping rows with the same pdgId
-def Mother (part, gen) :
-    idxMother= part.genPartIdxMother
-    while idxMother>=0 and gen[idxMother].pdgId == part.pdgId:
-        idxMother = gen[idxMother].genPartIdxMother
-    idMother=0
-    if idxMother >=0 : idMother = gen[idxMother].pdgId
-    return idxMother, idMother
-
 
 class mcTruthAnalyzer(Module):
     def __init__(self, dump=False):
@@ -30,8 +21,26 @@ class mcTruthAnalyzer(Module):
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
         self.out.branch("GenZZFinalState", "I")
+        self.out.branch("GenZZMass", "F")
         self.out.branch("FsrPhoton_genFsrIdx", "I", lenVar="nFsrPhoton")
 
+    # Find particle's real mother, (first parent in MC history with a different pdgID)
+    def Mother(self, part, gen) :
+        idxMother= part.genPartIdxMother
+        while idxMother>=0 and gen[idxMother].pdgId == part.pdgId:
+            idxMother = gen[idxMother].genPartIdxMother
+        idMother=0
+        if idxMother >=0 : idMother = gen[idxMother].pdgId
+        return idxMother, idMother
+
+    # Return the ID of the leptons's parent: 25 for H->Z->l; 23 for Z->l; +-15 for tau->l if genlep is e,mu.
+    def getParentID(self, part, gen) :
+        pIdx, pID = self.Mother(part, gen)
+        if pIdx < 0 : return 0
+        ppIdx = gen[pIdx].genPartIdxMother
+        if pID == 23 and ppIdx>=0 and gen[ppIdx].pdgId == 25 :
+            pID = 25
+        return pID
 
     def analyze(self, event):
         """process event, return True (go to next module) or False (fail, go to next event)"""
@@ -49,7 +58,7 @@ class mcTruthAnalyzer(Module):
                     motherId = genpart[gp.genPartIdxMother].pdgId
                     if genpart[gp.genPartIdxMother].genPartIdxMother >= 0 :
                         gmotherId = genpart[genpart[gp.genPartIdxMother].genPartIdxMother].pdgId
-                print (i, gp.pdgId, gp.genPartIdxMother, gp.pt, gp.eta, gp.status)
+                print (i, gp.pdgId, gp.genPartIdxMother, gp.pt, gp.eta, gp.phi, gp.p4().M(), gp.status)
         
             print("---------LHEPart---------")
             LHEPart = Collection (event, "LHEPart")
@@ -64,7 +73,7 @@ class mcTruthAnalyzer(Module):
             if gp.pdgId==22 and gp.pt > 2. and midx >= 0 :
                 mid = genpart[midx].pdgId
                 if abs(mid) == 11 or abs(mid) == 13 :
-                    mmidx, mmid = Mother(genpart[midx], genpart) # possibly skip intermediate rows
+                    mmidx, mmid = self.Mother(genpart[midx], genpart) # possibly skip intermediate rows
                     if mmid == 23 :
                         genFSRIdxs.append(i)
 
@@ -83,22 +92,49 @@ class mcTruthAnalyzer(Module):
         self.out.fillBranch("FsrPhoton_genFsrIdx", fsrPhotons_genFsrIdx)
 
 
-        # Search for leptons from H
-        GenHLeps = filter(lambda f : 
-                          (abs(f.pdgId)==11 or abs(f.pdgId)==13 or abs(f.pdgId)==15) and
-                          f.genPartIdxMother >=0 and genpart[f.genPartIdxMother].pdgId == 23 and
-                          genpart[f.genPartIdxMother].genPartIdxMother >= 0 and
-                          genpart[ genpart[f.genPartIdxMother].genPartIdxMother].pdgId == 25, genpart) #leptons generated from H->ZZ
-
+#        GenHLeps = filter(lambda f : 
+#                           (abs(f.pdgId)==11 or abs(f.pdgId)==13 or abs(f.pdgId)==15) and
+#                           f.genPartIdxMother >=0 and genpart[f.genPartIdxMother].pdgId == 23 and
+#                           genpart[f.genPartIdxMother].genPartIdxMother >= 0 and
+#                           genpart[ genpart[f.genPartIdxMother].genPartIdxMother].pdgId == 25, genpart) #leptons generated from H->ZZ
 #        GenEl_acc = filter(lambda f: abs(f.pdgId)== 11 and abs(f.eta)<2.5 and f.pt > conf["elePt"], GenHLeps)
 #        GenMu_acc = filter(lambda f: abs(f.pdgId)== 13 and abs(f.eta)<2.4 and f.pt > conf["muPt"], GenHLeps)
-#        gen_p4 = ROOT.TLorentzVector()
-        GenZZFinalState=1
-        for lep in GenHLeps :
-#            gen_p4 += lep.p4()
-            GenZZFinalState *= lep.pdgId
-#        print("Gen: {:} leps M={:.4g} In Acc: {:} e, {:} mu,  {:} FSR".format(len(GenHLeps),gen_p4.M(), len(GenEl_acc), len(GenMu_acc), len (GenFSR)), "\n")
 
-        self.out.fillBranch("GenZZFinalState", GenZZFinalState)
+
+        # Select leptons from ZZ and associated production. 
+        theGenZZLeps = []
+        theAssociatedLeps = []
+        theGenH = None
+        for p in genpart :
+            if (p.pdgId)==25 : theGenH = p
+            if (abs(p.pdgId)==11 or abs(p.pdgId)==13 or abs(p.pdgId)==15) and p.genPartIdxMother >=0 :
+                mid = genpart[p.genPartIdxMother].pdgId
+                pid = self.getParentID(p, genpart)
+                if mid == 25 or (mid == 23 and pid == 25) : # Lepton from H->(Z->)ll; note that this is the first daughter in the H or Z line; ie pre-FSR
+                    theGenZZLeps.append(p)
+                elif ((mid == 23 and pid == 23) or mid == 24): # Associated production, or ZZ (sorted out below).
+                    # FIXME this may miss leptons from ZZTo4lamcatnlo, cf. MCHistoryTools.cc
+                    theAssociatedLeps.append(p)
+
+        # handle ZZ samples. Note that tribosons samples are not be handled here.
+        if len(theAssociatedLeps)==4 and len(theGenZZLeps)==0 :
+            theGenZZLeps, theAssociatedLeps = theAssociatedLeps, theGenZZLeps
+                    
+
+        genZZFinalState=0
+        genZZMass=0.
+        if (len(theGenZZLeps) == 4):
+            genZZFinalState=1
+            gen_p4 = TLorentzVector()
+            for lep in theGenZZLeps :
+                gen_p4 += lep.p4()
+                genZZFinalState *= lep.pdgId
+                #        print("Gen: {:} leps M={:.4g} In Acc: {:} e, {:} mu,  {:} FSR".format(len(GenHLeps),gen_p4.M(), len(GenEl_acc), len(GenMu_acc), len (GenFSR)), "\n")
+            genZZMass = gen_p4.M()
+
+#        print(theGenH.p4().M(), genZZMass, "nFSR: ", len(genFSRIdxs))
+
+        self.out.fillBranch("GenZZFinalState", genZZFinalState)
+        self.out.fillBranch("GenZZMass", genZZMass)
 
         return True

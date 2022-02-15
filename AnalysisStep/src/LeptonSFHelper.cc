@@ -1,7 +1,8 @@
 #include <ZZAnalysis/AnalysisStep/interface/LeptonSFHelper.h>
 
+#include <FWCore/MessageLogger/interface/MessageLogger.h>
+
 using namespace std;
-//using namespace edm;
 
 LeptonSFHelper::LeptonSFHelper()
 {
@@ -340,5 +341,29 @@ float LeptonSFHelper::getSFError(int year, int flav, float pt, float eta, float 
    }
    
    return SFError;
+}
+
+
+// Add C bindings for python
+#include <new>
+extern "C" {
+  void* get_LeptonSFHelper(void) {
+    return new(std::nothrow) LeptonSFHelper;
+  }
+
+  void del_LeptonSFHelper(void* ptr) {
+    delete (reinterpret_cast<LeptonSFHelper*>(ptr));
+  }
+
+  float LeptonSFHelper_getSF(void* ptr, int year, int flav, float pt, float eta, float SCeta, bool isCrack) {
+    LeptonSFHelper * ref = reinterpret_cast<LeptonSFHelper*>(ptr);
+    return ref->getSF(year, flav, pt, eta, SCeta, isCrack);
+  }
+
+  float LeptonSFHelper_getSFError(void* ptr, int year, int flav, float pt, float eta, float SCeta, bool isCrack) {
+    LeptonSFHelper * ref = reinterpret_cast<LeptonSFHelper*>(ptr);
+    return ref->getSFError(year, flav, pt, eta, SCeta, isCrack);
+  }
+
 }
 

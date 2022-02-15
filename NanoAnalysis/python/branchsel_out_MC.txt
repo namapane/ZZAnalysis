@@ -13,5 +13,7 @@ keep Muon*
 #keep Jet*
 keep FsrPhoton*
 keep Z* # Z and ZZ
-keep GenZZFinalState
+keep GenZZ*
 keep *eight # Generator_weight + custom weights
+keep KFactor*
+

@@ -17,7 +17,8 @@ DEBUG = False
 ### Comparators to select the best candidate in the event 
 def bestCandByZ1Z2(a,b): # Choose by abs(MZ1-MZ), or sum(PT) if same Z1
     if abs(a.Z1.M-b.Z1.M) < 1e-4 : # same Z1: choose the candidate with highest-pT Z2 leptons
-        if a.Z2.sumpt() > b.Z2.sumpt() : return -1        
+        if a.Z2.sumpt() > b.Z2.sumpt() :
+            return -1
         else :
             return 1
     else :
@@ -26,7 +27,7 @@ def bestCandByZ1Z2(a,b): # Choose by abs(MZ1-MZ), or sum(PT) if same Z1
             return 1
 
 def bestCandByDbkgKin(a,b): # Choose by DbkgKin
-    if abs((a.p4).M() - (b.p4).M())<1e-4 and a.Z1.finalState()*a.Z2.finalState()==b.Z1.finalState()*b.Z2.finalState(): # Equivalent: same masss (tolerance 100 keV) and same FS -> same leptons and FSR
+    if abs((a.p4).M() - (b.p4).M())<1e-4 and a.finalState()==b.finalState() and (a.finalState() == 28561 or a.finalState()==14641) : # Equivalent: same masss (tolerance 100 keV) and same FS -> same leptons and FSR
         return bestCandByZ1Z2(a,b)
     if a.KD > b.KD : return 1 # choose by best dbkgkin
     else: return -1    
@@ -41,8 +42,8 @@ class ZCand:
         self.l2Idx = l2Idx
         self.l1 = leps[l1Idx]
         self.l2 = leps[l2Idx]
-        self.fsr1Idx = self.l1.myFsrPhotonIdx
-        self.fsr2Idx = self.l2.myFsrPhotonIdx
+        self.fsr1Idx = self.l1.fsrPhotonIdx
+        self.fsr2Idx = self.l2.fsrPhotonIdx
 
         self.l1DressedP4 = self.l1.p4()
         self.l2DressedP4 = self.l2.p4()
@@ -75,17 +76,49 @@ class ZZCand:
 
 
 class ZZFiller(Module):
-    def __init__(self, runMELA, bestCandByMELA, isMC):
+    def __init__(self, runMELA, bestCandByMELA, isMC, year):
         self.writeHistFile = True
         self.runMELA = runMELA or bestCandByMELA
         self.bestCandByMELA = bestCandByMELA        
         self.isMC = isMC
+        self.year = year
+
+
+        self.lib = CDLL('libZZAnalysisAnalysisStep.so') ## used for c-constants and lepton SF helper
+
+        # data-MC SFs.
+        # NanoAODTools provides a module based on LeptonEfficiencyCorrector.cc, but that does not seem to be flexible enough for us
+        # https://github.com/cms-nanoAOD/nanoAOD-tools/blob/master/python/postprocessing/modules/common/lepSFProducer.py
+        self.lepSFHelper = self.lib.get_LeptonSFHelper() # for UL samples: requires passing bool preVFP = False
+        self.lib.LeptonSFHelper_getSF.restype = c_float
+        self.lib.LeptonSFHelper_getSFError.restype = c_float
 
         if self.runMELA :
             self.mela = Mela(13, 125, TVar.ERROR)
-            self.mela.setCandidateDecayMode(TVar.CandidateDecay_ZZ)      
-            self.lib = CDLL('libZZAnalysisAnalysisStep.so')
+            self.mela.setCandidateDecayMode(TVar.CandidateDecay_ZZ)
             self.lib.D_bkg_kin.restype = c_float
+
+
+    def getDataMCWeight(self, leps) :
+       dataMCWeight = 1.
+       for lep in leps:           
+           myLepID = abs(lep.pdgId)
+           mySCeta = lep.eta
+           isCrack = False
+           if myLepID==11 :
+               mySCeta = lep.eta + lep.deltaEtaSC
+               isCrack = False # FIXME: isGap() is not available in nanoAODs!!!
+
+           # Deal with very rare cases when SCeta is out of 2.5 bounds
+           mySCeta = min(mySCeta,2.49)
+           mySCeta = max(mySCeta,-2.49)
+
+           SF = self.lib.LeptonSFHelper_getSF(self.lepSFHelper, c_int(self.year), c_int(myLepID), c_float(lep.pt), c_float(lep.eta), c_float(mySCeta), c_bool(isCrack))
+#           SF_Unc = lepSFHelper.getSFError(year,myLepID,lep.pt,lep.eta, mySCeta, isCrack)
+           dataMCWeight *= SF
+
+       return dataMCWeight
+
 
     def beginJob(self,histFile=None, histDirName=None):
         Module.beginJob(self, histFile, histDirName+"_ZZFiller")
@@ -95,6 +128,9 @@ class ZZFiller(Module):
         self.h_ZZMass = ROOT.TH1F('ZZMass','ZZMass',130,70,200)
         self.addObject(self.h_ZZMass)
 
+
+    def endJob(self):
+        self.lib.del_LeptonSFHelper(self.lepSFHelper)
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
@@ -135,7 +171,7 @@ class ZZFiller(Module):
                     if l2.isTightIso and l1.pdgId == -l2.pdgId : #OS,SF
                         aZ = ZCand(i, j, leps, fsrPhotons)
                         zmass = aZ.M
-                        if DEBUG: print('Z={:.4g} pt1={:.3g} pt2={:.3g}'.format(zmass, l1.pt, l2.pt), l1.myFsrPhotonIdx,  l2.myFsrPhotonIdx)
+                        if DEBUG: print('Z={:.4g} pt1={:.3g} pt2={:.3g}'.format(zmass, l1.pt, l2.pt), l1.fsrPhotonIdx,  l2.fsrPhotonIdx)
                         if (zmass>12. and zmass<120.):
                             Zs.append(aZ)
 
@@ -229,6 +265,8 @@ class ZZFiller(Module):
 
                 # the four leptons
                 ZZ_mass = bestZZ.p4.M()
+                if DEBUG: print("bestZZ=", ZZ_mass, Z1.M, Z2.M)
+
 
                 # Compute ZZ mass without adding FSR
                 zzleps = [Z1.l1, Z1.l2, Z2.l1, Z2.l2] 
@@ -254,11 +292,8 @@ class ZZFiller(Module):
                 self.out.fillBranch("Z2_l2Idx", Z2.l2Idx)
                 self.out.fillBranch("ZZ_Dbkgkin", Dbkgkin)                
 
-                # Compute weights #FIXME to be moved to a separate module
-                w_total = 1.
-
                 if self.isMC: 
-                    w_dataMC = 1. 
+                    w_dataMC = self.getDataMCWeight(zzleps) 
                     self.out.fillBranch("ZZ_dataMCWeight", w_dataMC) 
             
                 ### Fill plots for best candidate

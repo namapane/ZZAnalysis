@@ -27,16 +27,17 @@ class lepFiller(Module):
         self.out = wrappedOutputTree        
         
         self.out.branch("FsrPhoton_mass", "F", lenVar="nFsrPhoton") # Hack so that photon.p4() works
+        self.out.branch("FsrPhoton_dROverEt2", "F", lenVar="nFsrPhoton") # Overwrite existing value
 
         self.out.branch("Electron_isBDT", "O", lenVar="nElectron")
         self.out.branch("Electron_isLoose", "O", lenVar="nElectron")
         self.out.branch("Electron_isTightIso", "O", lenVar="nElectron")
-        self.out.branch("Electron_myFsrPhotonIdx", "I", lenVar="nElectron")
+        self.out.branch("Electron_fsrPhotonIdx", "I", lenVar="nElectron") # Overwrite existing value
         self.out.branch("Electron_pfRelIso03FsrCorr", "F", lenVar="nElectron")
 
         self.out.branch("Muon_isLoose", "O", lenVar="nMuon")
         self.out.branch("Muon_isTightIso", "O", lenVar="nMuon")
-        self.out.branch("Muon_myFsrPhotonIdx", "I", lenVar="nMuon")
+        self.out.branch("Muon_fsrPhotonIdx", "I", lenVar="nMuon") # Overwrite existing value
         self.out.branch("Muon_pfRelIso03FsrCorr", "F", lenVar="nMuon")
 
 #    def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
@@ -137,16 +138,17 @@ class lepFiller(Module):
 
         fsrM = [0.]*len(fsrPhotons)
         self.out.fillBranch("FsrPhoton_mass", fsrM)
+        self.out.fillBranch("FsrPhoton_dROverEt2", fsrPhoton_mydROverEt2)
 
         self.out.fillBranch("Electron_isBDT", eleBDT)
         self.out.fillBranch("Electron_isLoose", eleLoose)
         self.out.fillBranch("Electron_isTightIso", ele_tightIso)
-        self.out.fillBranch("Electron_myFsrPhotonIdx", eleFsrPhotonIdx)
+        self.out.fillBranch("Electron_fsrPhotonIdx", eleFsrPhotonIdx)
         self.out.fillBranch("Electron_pfRelIso03FsrCorr", ele_isoFsrCorr)
 
         self.out.fillBranch("Muon_isLoose", muLoose)
         self.out.fillBranch("Muon_isTightIso", mu_tightIso)
-        self.out.fillBranch("Muon_myFsrPhotonIdx", muFsrPhotonIdx)
+        self.out.fillBranch("Muon_fsrPhotonIdx", muFsrPhotonIdx)
         self.out.fillBranch("Muon_pfRelIso03FsrCorr", mu_isoFsrCorr)
 
         return True

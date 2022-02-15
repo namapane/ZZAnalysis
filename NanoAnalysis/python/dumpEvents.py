@@ -42,8 +42,8 @@ class dumpEvents(Module):
                      end="")
                print(' isLoose={} isTight={}'.format(lep.isLoose,lep.isTightIso),
                      end="")
-               if (lep.myFsrPhotonIdx>=0):
-                   fsr=fsrPhotons[lep.myFsrPhotonIdx]
+               if (lep.fsrPhotonIdx>=0):
+                   fsr=fsrPhotons[lep.fsrPhotonIdx]
                    print(' FSR: pt={:.3g} eta={:.3g}, phi={:.3g}, dREt2={:.3g}, Iso={:.3g}, true={}'.format(fsr.pt, fsr.eta, fsr.phi, fsr.dROverEt2, fsr.relIso03, (fsr.genFsrIdx>=0)))
                else:
                    print()
