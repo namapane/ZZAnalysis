@@ -46,8 +46,9 @@ struct FSRCandidate {
   // Parameters, w.r.t. closest lepton
   float dR() {return min(dRMinMu,dRMinEle);}
   float dRET2() {return dR()/g->pt()/g->pt();}
-  bool isFSRLoose() {return gRelIso<2   && dRET2()<0.05;}  // nanoAOD selection
-  bool isFSRTight() {return gRelIso<1.8 && dRET2()<0.012;} // H4l selection
+  bool isIso() {return gRelIso<2;}  // nanoAOD selection
+  bool isFSRLoose() {return g->pt() > 2. && fabs(g->eta())<2.5 && gRelIso<2   && dRET2()<0.05;}  // nanoAOD selection #NOTE: eta
+  bool isFSRTight() {return g->pt() > 2. && fabs(g->eta())<2.5 && gRelIso<1.8 && dRET2()<0.012;} // H4l selection
   bool isLepTight() {
     if (dRMinEle<dRMinMu) return closestEle->userFloat("isGood");
     else return closestMu->userFloat("isGood");
@@ -159,7 +160,7 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
     if (g->pdgId()!=22) continue;
 
     // Photon preselection (is currently already applied on pat::PackedCandidate collection?)
-    if (!(g->pt()>2. && fabs(g->eta())<2.4)) continue;
+    //     if (!(g->pt()>2. && fabs(g->eta())<2.4)) continue; #FIXME leave cuts in isFSRLoose, is FSRTight
 
     //---------------------
     // // Supercluster veto
@@ -294,7 +295,8 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
   // Loop on all photon candidates to print info
   for (size_t iPhoton=0; iPhoton<photons.size(); ++iPhoton) {	
     FSRCandidate& gc = photons[iPhoton];
-    if (!gc.isFSRLoose()) continue;
+    //    if (!gc.isFSRLoose()) continue;
+    if (!gc.isIso()) continue;
 
     int lID = gc.closestLep->pdgId(); // ID of the closest lepton
     float lpT = gc.closestLep->pt();

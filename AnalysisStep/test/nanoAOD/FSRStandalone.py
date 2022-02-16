@@ -5,8 +5,8 @@
 from __future__ import print_function
 import math
 from array import array
-from ROOT import TAttLine,TCanvas, TFile, TColor, gStyle, TH1F, TH1, gROOT, TNtuple, gDirectory, TLegend
-from ROOT import kBlack, kBlue, kRed, kOrange, kGreen, kPink,kCyan
+from ROOT import TAttLine,TCanvas, TFile, TColor, gStyle, TH1F, TH1, gROOT, TNtuple, gDirectory, TLegend, TF1
+from ROOT import kBlack, kBlue, kRed, kOrange, kGreen, kPink, kCyan, kMagenta, kGreen
 
 def eff(num, den) :
     e = num/den
@@ -50,8 +50,11 @@ TH1.SetDefaultSumw2()
 
 
 #n=TNtuple("test", "test", "run:ls:event:pT:eta:phi:gRelIso:SCVetoTight:lID:lTight:dR:dRET2:isLoose:isTight:maskLoose:maskTight:isSelStd:isSelNano:muEleOverlap:pTGen:etaGen:phiGen:genFS:genMother")
+
 n=TNtuple("test", "test", "run:ls:event:pT:eta:phi:gRelIso:SCVetoTight:vetoPT:lID:lpT:lTight:dR:dRET2:isLoose:isTight:maskLoose:maskTight:isSelStd:isSelNano:muEleOverlap:stealer_ID:stealer_pT:stealer_DR:pTGen:etaGen:phiGen:genFS:genMother")
-n.ReadFile("/afs/cern.ch/user/n/namapane/public/for_Valentina/FSR_tree5.txt");
+#n.ReadFile("/afs/cern.ch/user/n/namapane/public/for_Valentina/FSR_tree5.txt")
+
+n.ReadFile("/afs/cern.ch/user/n/namapane/public/for_Valentina/FSR_tree_nocuts.txt")
 
 
 #selection = "isSelStd&&lTight&&genFS<3"
@@ -110,8 +113,8 @@ nbins_pt = 16
 nMAX_pt=80.
 nmin_pt = 0.
 
-nbins_eta = 24
-nMAX_eta=2.4
+nbins_eta = 25
+nMAX_eta=2.5
 nmin_eta = 0.
 
 c1 = TCanvas("ctemp","ctemp",800,800)
@@ -225,7 +228,7 @@ h_pur_mu_pt[2].Draw()
 
 h_pur_el_pt[2].Divide(h_pur_el_pt[1],h_pur_el_pt[0],1.,1.,"b")
 #h_pur_el_pt[2].GetXaxis().SetTitle("pT_{e} [GeV]")
-#c6= TCanvas("p_el_pt","p_el_pt",800,800)
+c6= TCanvas("p_el_pt","p_el_pt",800,800)
 h_pur_el_pt[2].GetYaxis().SetTitle("Purity")
 h_pur_el_pt[2].SetMarkerStyle(4)
 h_pur_el_pt[2].GetYaxis().SetRangeUser(0,1)
@@ -251,3 +254,62 @@ legend1 = TLegend()
 legend1.AddEntry(h_pur_mu_pt[1], "muon pT (true FSR)", "lp")
 legend1.AddEntry(h_pur_el_pt[1], "electron pT (true FSR)", "lp")
 legend1.Draw()
+
+c10 = TCanvas ("FSR_Et_DRET2", "FSR_Et_DRET2", 800,800)
+c10.SetLogx()
+n.Draw("dR:pT>>hFSRFake(20,1,100,20,0,0.5)","pTGen<0&&abs(lID)==11")
+n.Draw("dR:pT>>hFSRTrue(20,1,100,20,0,0.5)","pTGen>0&&abs(lID)==11","same")
+hFSRFake = c10.GetListOfPrimitives()[2]
+hFSRTrue = c10.GetListOfPrimitives()[3]
+hFSRFake.SetMarkerStyle(20)
+hFSRFake.SetMarkerSize(0.2)
+hFSRFake.SetMarkerColor(kMagenta)
+hFSRTrue.SetMarkerStyle(20)
+hFSRTrue.SetMarkerSize(0.2)
+hFSRTrue.SetMarkerColor(kGreen)
+hFSRFake.Draw("P")
+hFSRTrue.Draw("SAMEP")
+
+
+f = TF1("f1","x*x*0.012",0,100)
+f.Draw("SAME")
+
+
+c11 = TCanvas ("FSR_Et_DRET2_e", "FSR_Et_DRET2_e", 800,800)
+c11.SetLogx()
+n.Draw("dR:pT>>hFSRFake(20,1,100,20,0,0.5)","pTGen<0&&abs(lID)==11")
+n.Draw("dR:pT>>hFSRTrue(20,1,100,20,0,0.5)","pTGen>0&&abs(lID)==11","same")
+hFSRFake = c11.GetListOfPrimitives()[2]
+hFSRTrue = c11.GetListOfPrimitives()[3]
+hFSRFake.SetMarkerStyle(20)
+hFSRFake.SetMarkerSize(0.2)
+hFSRFake.SetMarkerColor(kMagenta)
+hFSRTrue.SetMarkerStyle(20)
+hFSRTrue.SetMarkerSize(0.2)
+hFSRTrue.SetMarkerColor(kGreen)
+hFSRFake.Draw("P")
+hFSRTrue.Draw("SAMEP")
+
+
+c12 = TCanvas ("FSR_Et_DRET2_m", "FSR_Et_DRET2_m", 800,800)
+c12.SetLogx()
+n.Draw("dR:pT>>hFSRFake(20,1,100,20,0,0.5)","pTGen<0&&abs(lID)==13")
+n.Draw("dR:pT>>hFSRTrue(20,1,100,20,0,0.5)","pTGen>0&&abs(lID)==13","same")
+hFSRFake = c12.GetListOfPrimitives()[2]
+hFSRTrue = c12.GetListOfPrimitives()[3]
+hFSRFake.SetMarkerStyle(20)
+hFSRFake.SetMarkerSize(0.2)
+hFSRFake.SetMarkerColor(kMagenta)
+hFSRTrue.SetMarkerStyle(20)
+hFSRTrue.SetMarkerSize(0.2)
+hFSRTrue.SetMarkerColor(kGreen)
+hFSRFake.Draw("P")
+hFSRTrue.Draw("SAMEP")
+
+c13 = TCanvas ("FSR_Et_DRET2_m_bkg", "FSR_Et_DRET2_m_bkg", 800,800)
+c13.SetLogx()
+n.Draw("dR:pT>>hFSRFake(20,5,100,20,0,0.5)","pTGen<0&&abs(lID)==13")
+f2 = TF1("f2","0.7/x",5,100)
+f2.SetLineWidth(1)
+f2.SetLineStyle(3)
+f2.Draw("same")
