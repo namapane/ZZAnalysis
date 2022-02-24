@@ -116,7 +116,7 @@ class weightFiller(Module):
             KFactor_QCD_qqZZ_M = self.kfactor_qqZZ_qcd_M(event.GenZZMass, flavor, 2)/self.kfactor_qqZZ_qcd_M(event.GenZZMass, flavor, 1)
 
         if self.APPLY_K_NNLOEW_ZZQQB :
-            KFactor_EW_qqZZ = 0.9878 #FIXME: to be coded. This is an average for 100<ZZMass<200.
+            KFactor_EW_qqZZ = 1 #FIXME: this is 1 up to 2*mZ. To be implemented for higher masses.
 
         if self.APPLY_QCD_GGF_UNCERT :
             htxsNJets = event.HTXS_njets30
@@ -136,8 +136,8 @@ class weightFiller(Module):
         # L1prefiringWeightUp = event.L1PreFiringWeight_Up
         # L1prefiringWeightDn = event.L1PreFiringWeight_Dn
         
-
-        w_total = self.XS * event.Generator_weight * event.puWeight * event.ZZ_dataMCWeight * KFactor_EW_qqZZ * KFactor_QCD_ggZZ_Nominal * KFactor_QCD_qqZZ_M * ggH_NNLOPS_Weight
+        #FIXME: event.ZZ_dataMCWeight is not included, since that can be stored per-candidate if storeAllCands=True.
+        w_total = self.XS * event.Generator_weight * event.puWeight * KFactor_EW_qqZZ * KFactor_QCD_ggZZ_Nominal * KFactor_QCD_qqZZ_M * ggH_NNLOPS_Weight
 
         if self.APPLY_K_NNLOQCD_ZZQQB :
             self.out.fillBranch("KFactor_QCD_qqZZ_M", KFactor_QCD_qqZZ_M)

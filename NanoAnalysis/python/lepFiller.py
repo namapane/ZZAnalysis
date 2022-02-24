@@ -31,14 +31,16 @@ class lepFiller(Module):
 
         self.out.branch("Electron_isBDT", "O", lenVar="nElectron")
         self.out.branch("Electron_isLoose", "O", lenVar="nElectron")
-        self.out.branch("Electron_isTightIso", "O", lenVar="nElectron")
+        self.out.branch("Electron_isTight", "O", lenVar="nElectron")
         self.out.branch("Electron_fsrPhotonIdx", "I", lenVar="nElectron") # Overwrite existing value
         self.out.branch("Electron_pfRelIso03FsrCorr", "F", lenVar="nElectron")
+        self.out.branch("Electron_isIso", "O", lenVar="nElectron")
 
         self.out.branch("Muon_isLoose", "O", lenVar="nMuon")
-        self.out.branch("Muon_isTightIso", "O", lenVar="nMuon")
+        self.out.branch("Muon_isTight", "O", lenVar="nMuon")
         self.out.branch("Muon_fsrPhotonIdx", "I", lenVar="nMuon") # Overwrite existing value
         self.out.branch("Muon_pfRelIso03FsrCorr", "F", lenVar="nMuon")
+        self.out.branch("Muon_isIso", "O", lenVar="nMuon")
 
 #    def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
 #        pass
@@ -67,7 +69,8 @@ class lepFiller(Module):
         muTight = list(self.muTightId(m, self.era) for m in muons)  
 
         # Skip events that do not contain enough tight leptons (note: for CRs, this should be modified)
-        if (len(eleTight)+len(muTight)<4) : return False
+#FIXME: a filter here could speed up things, but must be handled properly
+#        if (len(eleTight)+len(muTight)<4) : return False
 
         
         # Re-match FSR with Loose leptons, as default associati1on may be wrong due to different cuts, masking/stealing.
@@ -119,8 +122,8 @@ class lepFiller(Module):
         # Recompute isolation removing all selected FSRs
         ele_isoFsrCorr = [-1.]*len(electrons)
         mu_isoFsrCorr = [-1.]*len(muons)
-        ele_tightIso = [False]*len(electrons)
-        mu_tightIso = [False]*len(muons)
+        ele_passIso = [False]*len(electrons)
+        mu_passIso = [False]*len(muons)
 
         selectedFSR = []
         for ifsr in muFsrPhotonIdx + eleFsrPhotonIdx :
@@ -128,13 +131,11 @@ class lepFiller(Module):
 
         for ilep,lep in enumerate(muons) :
             mu_isoFsrCorr[ilep] = self.isoFsrCorr(lep, selectedFSR)
-            mu_tightIso[ilep] = muTight[ilep] and mu_isoFsrCorr[ilep] < self.cuts["relIso"]
+            mu_passIso[ilep] = mu_isoFsrCorr[ilep] < self.cuts["relIso"]
             
         for ilep,lep in enumerate(electrons) :
             ele_isoFsrCorr[ilep] = self.isoFsrCorr(lep, selectedFSR) 
-            ele_tightIso[ilep] = eleTight[ilep]# no iso cut for electrons
- 
-        # Tight ID, including FSR-corrected iso
+            ele_passIso[ilep] = True # no iso cut for electrons 
 
         fsrM = [0.]*len(fsrPhotons)
         self.out.fillBranch("FsrPhoton_mass", fsrM)
@@ -142,13 +143,15 @@ class lepFiller(Module):
 
         self.out.fillBranch("Electron_isBDT", eleBDT)
         self.out.fillBranch("Electron_isLoose", eleLoose)
-        self.out.fillBranch("Electron_isTightIso", ele_tightIso)
+        self.out.fillBranch("Electron_isTight", eleTight)
         self.out.fillBranch("Electron_fsrPhotonIdx", eleFsrPhotonIdx)
         self.out.fillBranch("Electron_pfRelIso03FsrCorr", ele_isoFsrCorr)
+        self.out.fillBranch("Electron_isIso", ele_passIso)
 
         self.out.fillBranch("Muon_isLoose", muLoose)
-        self.out.fillBranch("Muon_isTightIso", mu_tightIso)
+        self.out.fillBranch("Muon_isTight", muTight)
         self.out.fillBranch("Muon_fsrPhotonIdx", muFsrPhotonIdx)
         self.out.fillBranch("Muon_pfRelIso03FsrCorr", mu_isoFsrCorr)
+        self.out.fillBranch("Muon_isIso", mu_passIso)
 
         return True

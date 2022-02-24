@@ -40,7 +40,7 @@ class dumpEvents(Module):
                      end="")
                print(' combRelIsoPF={:.3g} combRelIsoPFFSRCorr={:.3g}'.format(lep.pfRelIso03_all, lep.pfRelIso03FsrCorr),
                      end="")
-               print(' isLoose={} isTight={}'.format(lep.isLoose,lep.isTightIso),
+               print(' isLoose={} isTight={}'.format(lep.isLoose,lep.isTight),
                      end="")
                if (lep.fsrPhotonIdx>=0):
                    fsr=fsrPhotons[lep.fsrPhotonIdx]

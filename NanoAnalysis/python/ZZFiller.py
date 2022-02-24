@@ -82,6 +82,17 @@ class ZZFiller(Module):
         self.bestCandByMELA = bestCandByMELA        
         self.isMC = isMC
         self.year = year
+        # if set to True, all candidates are stored with flags to mark passing of IDs.
+        # Otherwise, only the best candidate (standard selection) is saved
+
+        self.storeAllCands = True 
+
+        if self.storeAllCands :
+            # Fully relax muon ID. Electron ID is unchanged
+            self.leptonIdSel = (lambda l : (abs(l.pdgId)==13 and l.pt>5 and abs(l.eta) < 2.4) or (abs(l.pdgId)==11 and l.isTight)) 
+        else :
+            # Store only the best candidate passing standard ZZ cuts
+            self.leptonIdSel = (lambda l : l.isTight) # Standard selection
 
 
         self.lib = CDLL('libZZAnalysisAnalysisStep.so') ## used for c-constants and lepton SF helper
@@ -107,7 +118,7 @@ class ZZFiller(Module):
            isCrack = False
            if myLepID==11 :
                mySCeta = lep.eta + lep.deltaEtaSC
-               isCrack = False # FIXME: isGap() is not available in nanoAODs!!!
+               # FIXME: isGap() is not available in nanoAODs, and cannot be recomputed easily based on eta, phi. We thus use the non-gap SFs for all electrons.
 
            # Deal with very rare cases when SCeta is out of 2.5 bounds
            mySCeta = min(mySCeta,2.49)
@@ -134,18 +145,60 @@ class ZZFiller(Module):
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
-        self.out.branch("Z1_mass", "F")
-        self.out.branch("Z1_l1Idx", "F")
-        self.out.branch("Z1_l2Idx", "F")
-        self.out.branch("Z2_mass", "F")
-        self.out.branch("Z2_l1Idx", "F")
-        self.out.branch("Z2_l2Idx", "F")
-        self.out.branch("ZZ_mass", "F")
-        self.out.branch("ZZ_massPreFSR", "F")
-        self.out.branch("ZZ_Dbkgkin", "F")
 
-        if self.isMC :
-            self.out.branch("ZZ_dataMCWeight", "F")
+        # IDs: all ZZ leptons pass iso + the specified ID
+        self.IDs=["isLoose",  # ZZ loose ID; note that this is looser than nanoAOD presel
+                  "isTight",  # ZZ tight ID
+                  "looseId",  # CutBasedIdLoose
+                  "mediumId", # CutBasedIdMedium
+                  "mediumPromptId", # CutBasedIdMediumPrompt
+                  "tightId",  # CutBasedIdTight
+                  "softId",   # SoftCutBasedId
+                  "highPtId", # >0 = tracker high pT; 2 = global high pT, which includes the former
+                  "softMvaId",# SoftMvaId
+                  "mvaId",    # >0 = MvaLoose, 2=MvaMedium, 3=MvaTight, 4=MvaVTight, 5=MvaVVTight
+#                   "mvaLowPtId", # >0 = LowPtMvaLoose, 2=LowPtMvaMedium NOT YET AVAILABLE
+                  "isPFcand",
+                  "isGlobal",
+                  "isTracker",
+                  ]
+
+
+        self.MVAs=["softMva",
+                   "mvaTTH",
+                   "mvaLowPt",
+                   ]
+
+
+        if self.storeAllCands:
+            self.out.branch("nZZCand", "I")
+            self.out.branch("ZZCand_mass", "F", lenVar="nZZCand")
+            self.out.branch("ZZCand_Z1mass", "F", lenVar="nZZCand")
+            self.out.branch("ZZCand_Z1flav", "F", lenVar="nZZCand")
+            self.out.branch("ZZCand_Z2mass", "F", lenVar="nZZCand")
+            self.out.branch("ZZCand_Z2flav", "F", lenVar="nZZCand")
+            self.out.branch("ZZCand_KD", "F", lenVar="nZZCand")
+            self.out.branch("ZZCand_Z2sumpt", "F", lenVar="nZZCand")
+            self.out.branch("Z1_flav", "I")
+            if self.isMC :
+                self.out.branch("ZZCand_dataMCWeight", "F", lenVar="nZZCand")
+            for ID in self.IDs:
+                self.out.branch("ZZCand_mu"+ID, "O", lenVar="nZZCand")
+                
+        else: # store only the best candidate
+            self.out.branch("Z1_mass", "F")
+            self.out.branch("Z1_l1Idx", "F")
+            self.out.branch("Z1_l2Idx", "F")
+            self.out.branch("Z1_flav", "I")
+            self.out.branch("Z2_mass", "F")
+            self.out.branch("Z2_l1Idx", "F")
+            self.out.branch("Z2_l2Idx", "F")
+            self.out.branch("Z2_flav", "I")
+            self.out.branch("ZZ_mass", "F")
+            self.out.branch("ZZ_massPreFSR", "F")
+            self.out.branch("ZZ_Dbkgkin", "F")
+            if self.isMC :
+                self.out.branch("ZZ_dataMCWeight", "F")
 
 
     def analyze(self, event):
@@ -164,11 +217,11 @@ class ZZFiller(Module):
 
         ### Z combinatorial over selected leps (after FSR-corrected ISO cut for muons)
         Zs = []
-        for i,l1 in enumerate(leps):
-            if l1.isTightIso :
+        for i,l1 in enumerate(leps):            
+            if self.leptonIdSel(l1) and l1.isIso :
                 for j in range(i+1,nlep):
                     l2 = leps[j]
-                    if l2.isTightIso and l1.pdgId == -l2.pdgId : #OS,SF
+                    if self.leptonIdSel(l2) and l2.isIso and l1.pdgId == -l2.pdgId : #OS,SF
                         aZ = ZCand(i, j, leps, fsrPhotons)
                         zmass = aZ.M
                         if DEBUG: print('Z={:.4g} pt1={:.3g} pt2={:.3g}'.format(zmass, l1.pt, l2.pt), l1.fsrPhotonIdx,  l2.fsrPhotonIdx)
@@ -211,7 +264,7 @@ class ZZFiller(Module):
                     lepPts = []
                     # QCD suppression on all OS pairs, regardelss of flavour
                     passQCD = True
-                    for k in range(0,4):
+                    for k in range(4):
                         lepPts.append(zzleps[k].pt)
                         for l in range (k+1,4):
                             if zzleps[k].pdgId*zzleps[l].pdgId < 0 and (zzleps[k].p4()+zzleps[l].p4()).M()<=4.:
@@ -253,10 +306,59 @@ class ZZFiller(Module):
                         self.mela.resetInputEvent()
                     ZZ=ZZCand(Z1, Z2, p_GG_SIG_ghg2_1_ghz1_1_JHUGen, p_QQB_BKG_MCFM)
                     if DEBUG: print("ZZ=", (Z1.p4+Z2.p4).M(), p_GG_SIG_ghg2_1_ghz1_1_JHUGen, p_QQB_BKG_MCFM, ZZ.KD)
+                    if storeAllCands :
+                        passId = [False]*len(self.IDs)
+                        for iID, ID in enumerate(self.IDs) :
+                            passId[iID] = (abs(zzleps[0].pdgId)==11 or eval("zzleps[0]."+ID)) and \
+                                          (abs(zzleps[1].pdgId)==11 or eval("zzleps[1]."+ID)) and \
+                                          (abs(zzleps[2].pdgId)==11 or eval("zzleps[2]."+ID)) and \
+                                          (abs(zzleps[3].pdgId)==11 or eval("zzleps[3]."+ID))
+
+                        ZZ.passId = passId                    
                     ZZs.append(ZZ)
 
-            # Choose best ZZ candidate
-            if len(ZZs) > 0:
+            if len(ZZs) == 0 : return False
+            
+            if self.storeAllCands:
+                ZZCand_mass = [0.]*len(ZZs)
+                ZZCand_Z1mass = [0.]*len(ZZs)
+                ZZCand_Z1flav = [0.]*len(ZZs)
+                ZZCand_Z2mass = [0.]*len(ZZs)
+                ZZCand_Z2flav = [0.]*len(ZZs)
+                ZZCand_KD     = [0.]*len(ZZs)
+                ZZCand_Z2sumpt = [0.]*len(ZZs)
+                ZZCand_wDataMC = [0.]*len(ZZs)
+                ZZCand_passID  = [[] for il in range(len(self.IDs))]
+                
+                for iZZ, ZZ in enumerate(ZZs) :
+                    ZZCand_mass[iZZ]   = ZZ.p4.M()
+                    ZZCand_Z1mass[iZZ] = ZZ.Z1.M
+                    ZZCand_Z1flav[iZZ] = ZZ.Z1.finalState()
+                    ZZCand_Z2mass[iZZ] = ZZ.Z2.M
+                    ZZCand_Z2flav[iZZ] = ZZ.Z2.finalState()
+                    ZZCand_KD[iZZ] = ZZ.KD
+                    ZZCand_Z2sumpt[iZZ] = ZZ.Z2.sumpt()
+                    if self.isMC: ZZCand_wDataMC[iZZ] =  self.getDataMCWeight(zzleps)
+                    for iID, ID in enumerate(self.IDs) :
+                        ZZCand_passID[iID].append(ZZ.passId[iID])
+                    
+                self.out.fillBranch("nZZCand", len(ZZs))
+                self.out.fillBranch("ZZCand_mass", ZZCand_mass)
+                self.out.fillBranch("ZZCand_Z1mass", ZZCand_Z1mass)
+                self.out.fillBranch("ZZCand_Z1flav", ZZCand_Z1flav)
+                self.out.fillBranch("ZZCand_Z2mass", ZZCand_Z2mass)
+                self.out.fillBranch("ZZCand_Z2flav", ZZCand_Z2flav)
+                self.out.fillBranch("ZZCand_KD", ZZCand_KD)
+                self.out.fillBranch("ZZCand_Z2sumpt", ZZCand_Z2sumpt)
+                if self.isMC:
+                    self.out.fillBranch("ZZCand_dataMCWeight", ZZCand_wDataMC)
+                for iID, ID in enumerate(self.IDs) :
+                    self.out.fillBranch("ZZCand_mu"+ID, ZZCand_passID[iID])
+
+                return True
+
+            else :
+                # Store only the best ZZ candidate (among all ZZs, ie those passing the self.leptonIdSel selection)
                 if self.bestCandByMELA : bestZZ = min(ZZs, key = cmp_to_key(bestCandByDbkgKin))
                 else: bestZZ = min(ZZs, key = cmp_to_key(bestCandByZ1Z2))
 
@@ -267,11 +369,10 @@ class ZZFiller(Module):
                 ZZ_mass = bestZZ.p4.M()
                 if DEBUG: print("bestZZ=", ZZ_mass, Z1.M, Z2.M)
 
-
                 # Compute ZZ mass without adding FSR
                 zzleps = [Z1.l1, Z1.l2, Z2.l1, Z2.l2] 
                 m4l_p4=ROOT.TLorentzVector()
-                for i in range (0,4): m4l_p4 += (zzleps[i].p4())
+                for i in range (4): m4l_p4 += (zzleps[i].p4())
                 ZZ_massPreFSR=m4l_p4.M()
 
                 ZZFlav = bestZZ.finalState() # product of the IDs of the 4 leps (Assuming SF)
@@ -286,13 +387,15 @@ class ZZFiller(Module):
                 self.out.fillBranch("ZZ_massPreFSR", ZZ_massPreFSR)
                 self.out.fillBranch("Z1_mass", Z1.M)
                 self.out.fillBranch("Z2_mass", Z2.M)
+                self.out.fillBranch("Z1_flav", Z1.finalState())
+                self.out.fillBranch("Z2_flav", Z2.finalState())
                 self.out.fillBranch("Z1_l1Idx", Z1.l1Idx)
                 self.out.fillBranch("Z1_l2Idx", Z1.l2Idx)
                 self.out.fillBranch("Z2_l1Idx", Z2.l1Idx)
                 self.out.fillBranch("Z2_l2Idx", Z2.l2Idx)
-                self.out.fillBranch("ZZ_Dbkgkin", Dbkgkin)                
+                self.out.fillBranch("ZZ_Dbkgkin", Dbkgkin)
 
-                if self.isMC: 
+                if self.isMC:
                     w_dataMC = self.getDataMCWeight(zzleps) 
                     self.out.fillBranch("ZZ_dataMCWeight", w_dataMC) 
             
