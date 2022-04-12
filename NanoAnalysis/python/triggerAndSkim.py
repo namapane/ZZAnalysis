@@ -41,7 +41,7 @@ class triggerAndSkim(Module):
             sys.exit("ERROR: era not supported: ", self.era)
 
         
-        if self.isMC :
+        if self.isMC or PD == "any" :
             passTrigger = passDiEle or passDiMu or passMuEle or passTriEle or passTriMu or passSingleEle or passSingleMu
 
         else: # Data: ensure each event is taken only from a single PD

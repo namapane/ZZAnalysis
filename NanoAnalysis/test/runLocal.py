@@ -8,6 +8,12 @@ from ZZAnalysis.NanoAnalysis.tools import setConf, getConf
 
 ### Customize processing variables
 
+### K factors and weights (default: all off)
+#setConf("APPLY_K_NNLOQCD_ZZGG", 1) # 0:None; 1: NNLO/LO; 2: NNLO/NLO; 3: NLO/LO
+#setConf("APPLY_K_NNLOQCD_ZZQQB", True) 
+#setConf("APPLY_K_NNLOEW_ZZQQB", True) 
+#setConf("APPLY_QCD_GGF_UNCERT", True) 
+
 ### ggH125
 setConf("SAMPLENAME", "ggH125")
 setConf("XSEC", 48.58*0.0002745)
@@ -46,8 +52,16 @@ setConf("fileNames",["/eos/user/n/namapane/H4lnano/ggH125_fixedFSR.root"])
 #         ["/store/mc/RunIIAutumn18NanoAODv7/VBF_HToZZTo4L_M3000_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/60000/A82C31DF-0A6F-B44F-857B-89BFD72CEFEA.root"])
 
 
+#Options to run on DATA
+#setConf("IsMC", False)
+#setConf("PD", "any")
+#setConf("SAMPLENAME", "test")
+#setConf("store","")
+#setConf("fileNames",["/eos/cms/store/data/Run2018A/MuonEG/NANOAOD/02Apr2020-v1/50000/420527E8-C6CA-9745-AD5D-6ADF63B808B5.root"])
+
+
 # Select specific events to debug
-#setConf("preselection","event.eventId == 840922")
+#setConf("preselection","run==316239  && luminosityBlock==226 && event==284613817")
 
 
 ### This import should be done AFTER all customizations (setConf calls)
@@ -59,7 +73,8 @@ p.haddFileName=None
 
 # Print out detailed candidate information
 #from ZZAnalysis.NanoAnalysis.dumpEvents import dumpEvents
-#p.modules.append(dumpEvents(level=1)) 
+#p.modules.insert(3,dumpEvents(level=-1)) 
+#print(p.modules)
 
 #p.maxEntries = 1000
 p.prefetch=False

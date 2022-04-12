@@ -78,11 +78,11 @@ class weightFiller(Module):
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
         if self.APPLY_K_NNLOQCD_ZZQQB :
-           self.out.branch("KFactor_QCD_qqZZ_M", "F")            
+           self.out.branch("KFactor_QCD_qqZZ_M_Weight", "F")            
         if self.APPLY_K_NNLOQCD_ZZGG > 0 : 
-            self.out.branch("KFactor_QCD_ggZZ_Nominal", "F")
+            self.out.branch("KFactor_QCD_ggZZ_Nominal_Weight", "F")
         if self.APPLY_K_NNLOEW_ZZQQB :
-            self.out.branch("KFactor_EW_qqZZ", "F")
+            self.out.branch("KFactor_EW_qqZZ_Weight", "F")
         if self.APPLY_QCD_GGF_UNCERT :
             self.out.branch("ggH_NNLOPS_Weight", "F")
 
@@ -140,11 +140,11 @@ class weightFiller(Module):
         w_total = self.XS * event.Generator_weight * event.puWeight * KFactor_EW_qqZZ * KFactor_QCD_ggZZ_Nominal * KFactor_QCD_qqZZ_M * ggH_NNLOPS_Weight
 
         if self.APPLY_K_NNLOQCD_ZZQQB :
-            self.out.fillBranch("KFactor_QCD_qqZZ_M", KFactor_QCD_qqZZ_M)
+            self.out.fillBranch("KFactor_QCD_qqZZ_M_Weight", KFactor_QCD_qqZZ_M)
         if self.APPLY_K_NNLOQCD_ZZGG > 0 : 
-            self.out.fillBranch("KFactor_QCD_ggZZ_Nominal", KFactor_QCD_ggZZ_Nominal)
+            self.out.fillBranch("KFactor_QCD_ggZZ_Nominal_Weight", KFactor_QCD_ggZZ_Nominal)
         if self.APPLY_K_NNLOEW_ZZQQB :
-            self.out.fillBranch("KFactor_EW_qqZZ", KFactor_EW_qqZZ)
+            self.out.fillBranch("KFactor_EW_qqZZ_Weight", KFactor_EW_qqZZ)
         if self.APPLY_QCD_GGF_UNCERT :
             self.out.fillBranch("ggH_NNLOPS_Weight", ggH_NNLOPS_Weight)
 

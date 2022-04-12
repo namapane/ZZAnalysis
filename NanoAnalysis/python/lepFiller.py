@@ -17,10 +17,10 @@ class lepFiller(Module):
     def __init__(self, cuts, era):
         self.writeHistFile=False
         self.cuts = cuts
-        self.muLooseId = cuts["muLooseId"]
-        self.muTightId = cuts["muTightId"]
-        self.eleLooseId = cuts["eleLooseId"]
-        self.eleTightId = cuts["eleTightId"]
+        self.muRelaxedId = cuts["muRelaxedId"]
+        self.muFullId = cuts["muFullId"]
+        self.eleRelaxedId = cuts["eleRelaxedId"]
+        self.eleFullId = cuts["eleFullId"]
         self.era = era
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
@@ -29,18 +29,18 @@ class lepFiller(Module):
         self.out.branch("FsrPhoton_mass", "F", lenVar="nFsrPhoton") # Hack so that photon.p4() works
         self.out.branch("FsrPhoton_dROverEt2", "F", lenVar="nFsrPhoton") # Overwrite existing value
 
-        self.out.branch("Electron_isBDT", "O", lenVar="nElectron")
-        self.out.branch("Electron_isLoose", "O", lenVar="nElectron")
-        self.out.branch("Electron_isTight", "O", lenVar="nElectron")
+        self.out.branch("Electron_passBDT", "O", lenVar="nElectron")
+        self.out.branch("Electron_ZZRelaxedId", "O", lenVar="nElectron")
+        self.out.branch("Electron_ZZFullId", "O", lenVar="nElectron")
         self.out.branch("Electron_fsrPhotonIdx", "I", lenVar="nElectron") # Overwrite existing value
         self.out.branch("Electron_pfRelIso03FsrCorr", "F", lenVar="nElectron")
-        self.out.branch("Electron_isIso", "O", lenVar="nElectron")
+        self.out.branch("Electron_passIso", "O", lenVar="nElectron")
 
-        self.out.branch("Muon_isLoose", "O", lenVar="nMuon")
-        self.out.branch("Muon_isTight", "O", lenVar="nMuon")
+        self.out.branch("Muon_ZZRelaxedId", "O", lenVar="nMuon")
+        self.out.branch("Muon_ZZFullId", "O", lenVar="nMuon")
         self.out.branch("Muon_fsrPhotonIdx", "I", lenVar="nMuon") # Overwrite existing value
         self.out.branch("Muon_pfRelIso03FsrCorr", "F", lenVar="nMuon")
-        self.out.branch("Muon_isIso", "O", lenVar="nMuon")
+        self.out.branch("Muon_passIso", "O", lenVar="nMuon")
 
 #    def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
 #        pass
@@ -63,10 +63,10 @@ class lepFiller(Module):
 
         # IDs (no iso)
         eleBDT = list(passEleBDT(e, self.era) for e in electrons)
-        eleLoose = list(self.eleLooseId(e) for e in electrons)
-        muLoose = list(self.muLooseId(m) for m in muons)
-        eleTight = list(self.eleTightId(e, self.era) for e in electrons)
-        muTight = list(self.muTightId(m, self.era) for m in muons)  
+        eleRelaxedId = list(self.eleRelaxedId(e) for e in electrons)
+        muRelaxedId = list(self.muRelaxedId(m) for m in muons)
+        eleFullId = list(self.eleFullId(e, self.era) for e in electrons)
+        muFullId = list(self.muFullId(m, self.era) for m in muons)  
 
         # Skip events that do not contain enough tight leptons (note: for CRs, this should be modified)
 #FIXME: a filter here could speed up things, but must be handled properly
@@ -90,14 +90,14 @@ class lepFiller(Module):
             closestMu=-1
             closestEle=-1
             for ilep, lep in enumerate(muons):
-                if muLoose[ilep] :
+                if muRelaxedId[ilep] :
                     dR =  deltaR(lep.eta, lep.phi, fsr.eta, fsr.phi)
                     if dR < dRmin and dR > 0.001 and dR/fsr.pt/fsr.pt < self.cuts["fsr_dRET2"]:
                         dRmin = dR
                         closestMu=ilep
 
             for ilep, lep in enumerate(electrons):
-                if eleLoose[ilep] :
+                if eleRelaxedId[ilep] :
                     dR =  deltaR(lep.eta, lep.phi, fsr.eta, fsr.phi)
                     if dR < dRmin and dR > 0.001 and dR/fsr.pt/fsr.pt < self.cuts["fsr_dRET2"]:
                         dRmin = dR
@@ -141,17 +141,17 @@ class lepFiller(Module):
         self.out.fillBranch("FsrPhoton_mass", fsrM)
         self.out.fillBranch("FsrPhoton_dROverEt2", fsrPhoton_mydROverEt2)
 
-        self.out.fillBranch("Electron_isBDT", eleBDT)
-        self.out.fillBranch("Electron_isLoose", eleLoose)
-        self.out.fillBranch("Electron_isTight", eleTight)
+        self.out.fillBranch("Electron_passBDT", eleBDT)
+        self.out.fillBranch("Electron_ZZRelaxedId", eleRelaxedId)
+        self.out.fillBranch("Electron_ZZFullId", eleFullId)
         self.out.fillBranch("Electron_fsrPhotonIdx", eleFsrPhotonIdx)
         self.out.fillBranch("Electron_pfRelIso03FsrCorr", ele_isoFsrCorr)
-        self.out.fillBranch("Electron_isIso", ele_passIso)
+        self.out.fillBranch("Electron_passIso", ele_passIso)
 
-        self.out.fillBranch("Muon_isLoose", muLoose)
-        self.out.fillBranch("Muon_isTight", muTight)
+        self.out.fillBranch("Muon_ZZRelaxedId", muRelaxedId)
+        self.out.fillBranch("Muon_ZZFullId", muFullId)
         self.out.fillBranch("Muon_fsrPhotonIdx", muFsrPhotonIdx)
         self.out.fillBranch("Muon_pfRelIso03FsrCorr", mu_isoFsrCorr)
-        self.out.fillBranch("Muon_isIso", mu_passIso)
+        self.out.fillBranch("Muon_passIso", mu_passIso)
 
         return True

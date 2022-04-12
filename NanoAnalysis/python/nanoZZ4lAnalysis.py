@@ -27,12 +27,12 @@ cuts = dict(
     dz = 1.,
     fsr_dRET2 = 0.012,
     fsr_Iso = 1.8,
-    # Loose IDs includes SIP, but a version without SIP will be required for relaxed-SIP CRs
-    muLooseId = (lambda l : l.pt > cuts["muPt"] and abs(l.eta) < 2.4 and abs(l.dxy) < cuts["dxy"] and abs(l.dz) < cuts["dz"] and abs(l.sip3d) < cuts["sip3d"] and (l.isGlobal or l.isTracker)),  #FIXME: l.nStations>0) is not equivalent to numberOfMatches>0); also, muonBestTrackType!=2 is not available
-    muTightId = (lambda l, era : cuts["muLooseId"](l) and (l.isPFcand or (l.highPtId>0 and l.pt>200.))),  # Note: FSR-corrected isolation has also to be applied in addition to tight ID  #FIXME: highPtId does not match exactly our definition.     
+    # Relaxed ID (used for CRs for fake rate method) includes SIP, but a version without SIP will be required for relaxed-SIP CRs
+    muRelaxedId = (lambda l : l.pt > cuts["muPt"] and abs(l.eta) < 2.4 and abs(l.dxy) < cuts["dxy"] and abs(l.dz) < cuts["dz"] and abs(l.sip3d) < cuts["sip3d"] and (l.isGlobal or (l.isTracker and l.nStations>0))), # Notes: l.nStations is numberOfMatchedStation, not numberOfMatches; also, muonBestTrackType!=2 is not available in nanoAODs
+    muFullId = (lambda l, era : cuts["muRelaxedId"](l) and (l.isPFcand or (l.highPtId>0 and l.pt>200.))), # Note: full ID does not include isolation; FSR-corrected iso has to be applied on top.
 
-    eleLooseId = (lambda l : l.pt > cuts["elePt"] and abs(l.eta) < 2.5 and abs(l.dxy) < cuts["dxy"] and abs(l.dz) < cuts["dz"] and abs(l.sip3d) < cuts["sip3d"]),
-    eleTightId =  (lambda l, era : cuts["eleLooseId"](l) and abs(l.sip3d) < cuts["sip3d"] and passEleBDT(l, era)), #FIXME: BDT definition is available only for 2017!
+    eleRelaxedId = (lambda l : l.pt > cuts["elePt"] and abs(l.eta) < 2.5 and abs(l.dxy) < cuts["dxy"] and abs(l.dz) < cuts["dz"] and abs(l.sip3d) < cuts["sip3d"]),
+    eleFullId =  (lambda l, era : cuts["eleRelaxedId"](l) and abs(l.sip3d) < cuts["sip3d"] and passEleBDT(l, era)), #FIXME: BDT definition is available only for 2017!
 
     )
 

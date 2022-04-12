@@ -20,7 +20,7 @@ class dumpEvents(Module):
 
         eventId='{}:{}:{}'.format(event.run,event.luminosityBlock,event.event)
 
-        if self.level >= 3 : #full detail
+        if self.level >= 3 or self.level == -1: #full detail
             for i,lep in enumerate(muons):
                print(eventId+" ", end="")
                print('#{} mu{} pt={:.3g} eta={:.3g} phi={:.3g} dxy={:.3g} dz={:.3g} SIP={:.3g} cmask={}'.format(i, charge[lep.charge],
@@ -40,7 +40,7 @@ class dumpEvents(Module):
                      end="")
                print(' combRelIsoPF={:.3g} combRelIsoPFFSRCorr={:.3g}'.format(lep.pfRelIso03_all, lep.pfRelIso03FsrCorr),
                      end="")
-               print(' isLoose={} isTight={}'.format(lep.isLoose,lep.isTight),
+               print(' relaxedId={} fullId={}'.format(lep.ZZRelaxedId,lep.ZZFullId),
                      end="")
                if (lep.fsrPhotonIdx>=0):
                    fsr=fsrPhotons[lep.fsrPhotonIdx]
@@ -61,7 +61,7 @@ class dumpEvents(Module):
                      end="")
                # FIXME must refactor this passBDT = passEleBDT(lep.pt, lep.eta+lep.deltaEtaSC, lep.mvaFall17V2Iso) 
                passBDT=True
-               print(' scEta={:.3g} BDT={:.3g} passBDT={}'.format(lep.eta+lep.deltaEtaSC, lep.mvaFall17V2Iso, passBDT))
+               print(' scEta={:.3g} BDT={:.3g} passBDT={} relaxedId={} fullId={}'.format(lep.eta+lep.deltaEtaSC, lep.mvaFall17V2Iso, passBDT, lep.ZZRelaxedId, lep.ZZFullId))
    
 
         if self.level >=1 : # final candidates
