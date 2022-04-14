@@ -71,8 +71,15 @@ store = getConf("store","") #/eos/cms/ for files available on eos;
 fileNames = getConf("fileNames", ["/store/mc/RunIIAutumn18NanoAODv7/GluGluHToZZTo4L_M125_13TeV_powheg2_JHUGenV7011_pythia8/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/260000/BA6D7F40-ED5E-7D4E-AB14-CE8A9C5DE7EC.root",]) # sample ggH125 file
 for i, file in enumerate(fileNames):
     fileNames[i] = store+file
-jsonFile = getConf("jsonFile", None)
 
+localPath = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/"
+
+jsonFile = None
+if not IsMC :
+    if LEPTON_SETUP == 2018 :
+        jsonFile = localPath+"test/prod/Cert_314472-325175_13TeV_17SeptEarlyReReco2018ABC_PromptEraD_Collisions18_JSON.txt"
+    else:        
+        exit(1) #2016-17 to be implemented
 
 from PhysicsTools.NanoAODTools.postprocessing.modules.common.muonScaleResProducer import muonScaleRes2016, muonScaleRes2017, muonScaleRes2018
 muonScaleRes = {2016:muonScaleRes2016, 2017:muonScaleRes2017, 2018:muonScaleRes2018}
@@ -97,11 +104,11 @@ if IsMC :
 
 branchsel_in = ""
 if IsMC:
-    branchsel_in = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_in_MC.txt"
-    branchsel_out = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_out_MC.txt"
+    branchsel_in  = localPath+"python/branchsel_in_MC.txt"
+    branchsel_out = localPath+"python/branchsel_out_MC.txt"
 else:
-    branchsel_in = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_in_Data.txt"
-    branchsel_out = os.environ['CMSSW_BASE']+"/src/ZZAnalysis/NanoAnalysis/python/branchsel_out_Data.txt"
+    branchsel_in  = localPath+"python/branchsel_in_Data.txt"
+    branchsel_out = localPath+"python/branchsel_out_Data.txt"
 
 
 
