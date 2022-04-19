@@ -13,7 +13,7 @@ class triggerAndSkim(Module):
         self.isMC = isMC
         self.PD = PD
         self.era = era
-
+        print("triggerAndSkim configuration: IsMC=", self.isMC, "PD=", self.PD, "era=", self.era)
         
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree

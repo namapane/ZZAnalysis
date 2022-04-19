@@ -69,9 +69,9 @@ class ZZFiller(Module):
             print("Unexpected selection for best candidate assignment:", self.muonIDs[idForBestCandSel]["name"], "please verify")
             exit(1)
 
-        # Add variable to store the worst value of a given quantity among the 4 leptns of a candidate, for optimization studies.
+        # Add variable to store the worst value of a given quantity among the 4 leptons of a candidate, for optimization studies.
         # Worst is intended as lowest value (as for an MVA), unless the variable's name starts with "max".
-        self.muonIDVars=[dict(name="maxsip3d", sel=lambda l : l.sip3d if (l.dxy<0.5 and l.dz < 1) else 999.), # dxy, dz cuts included with SIP
+        self.muonIDVars=[dict(name="maxsip3d", sel=lambda l : l.sip3d if (abs(l.dxy)<0.5 and abs(l.dz) < 1) else 999.), # dxy, dz cuts included with SIP
                          dict(name="maxpfRelIso03FsrCorr", sel=lambda l : l.pfRelIso03FsrCorr),
                          dict(name="mvaLowPt", sel=lambda l : l.mvaLowPt if (l.looseId and l.sip3d<4. and l.dxy<0.5 and l.dz < 1) else -2.), # additional presel required, cf: https://cmssdt.cern.ch/dxr/CMSSW/source/PhysicsTools/PatAlgos/plugins/PATMuonProducer.cc#1027-1046
                          ]
