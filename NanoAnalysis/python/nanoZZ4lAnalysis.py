@@ -81,14 +81,16 @@ if not IsMC :
     else:        
         exit(1) #2016-17 to be implemented
 
-from PhysicsTools.NanoAODTools.postprocessing.modules.common.muonScaleResProducer import muonScaleRes2016, muonScaleRes2017, muonScaleRes2018
+from ZZAnalysis.NanoAnalysis.muonScaleResProducer import muonScaleRes2016, muonScaleRes2017, muonScaleRes2018
 muonScaleRes = {2016:muonScaleRes2016, 2017:muonScaleRes2017, 2018:muonScaleRes2018}
 
 
 ZZSequence = [triggerAndSkim(isMC=IsMC, PD=PD, era=LEPTON_SETUP),
-              muonScaleRes[LEPTON_SETUP](overwritePt=True, syncMode=SYNCMODE), # FIXME requires custom muonScaleResProducer.py
+              muonScaleRes[LEPTON_SETUP](overwritePt=True, syncMode=SYNCMODE),
               lepFiller(cuts, LEPTON_SETUP), 
               ZZFiller(runMELA, bestCandByMELA, IsMC, LEPTON_SETUP),
+#              jetFiller(), 
+#              MELAFiller()
               ]
 
 if IsMC :

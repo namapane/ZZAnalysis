@@ -295,7 +295,7 @@ FSRStandaloneAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& 
   // Loop on all photon candidates to print info
   for (size_t iPhoton=0; iPhoton<photons.size(); ++iPhoton) {	
     FSRCandidate& gc = photons[iPhoton];
-    //    if (!gc.isFSRLoose()) continue;
+    //    if (!gc.isFSRLoose()) continue; // FIXME store them all
     if (!gc.isIso()) continue;
 
     int lID = gc.closestLep->pdgId(); // ID of the closest lepton
