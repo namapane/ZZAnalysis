@@ -1,4 +1,4 @@
-## Runs Content
+# Runs Content
 
 | Collection | Description |
 | - | - |
@@ -50,7 +50,7 @@
 | - | - | - |
 | **run** | UInt_t| run/i |
 
-## LuminosityBlocks Content
+# LuminosityBlocks Content
 
 | Collection | Description |
 | - | - |
@@ -78,7 +78,7 @@
 | - | - | - |
 | **run** | UInt_t| run/i |
 
-## Events Content
+# Events Content
 
 | Collection | Description |
 | - | - |
@@ -103,7 +103,7 @@
 | [**LHEReweightingWeight**](#lhereweightingweight) |  |
 | [**LHEScaleWeight**](#lhescaleweight) | LHE scale variation weights (w_var / w_nominal); [0] is renscfact=0.5d0 facscfact=0.5d0 ; [1] is renscfact=0.5d0 facscfact=1d0 ; [2] is renscfact=0.5d0 facscfact=2d0 ; [3] is renscfact=1d0 facscfact=0.5d0 ; [4] is renscfact=1d0 facscfact=1d0 ; [5] is renscfact=1d0 facscfact=2d0 ; [6] is renscfact=2d0 facscfact=0.5d0 ; [7] is renscfact=2d0 facscfact=1d0 ; [8] is renscfact=2d0 facscfact=2d0  |
 | [**MET**](#met) | pt |
-| [**Muon**](#muon) | slimmedMuons after basic selection (pt > 15 || (pt > 3 && (passed('CutBasedIdLoose') || passed('SoftCutBasedId') || passed('SoftMvaId') || passed('CutBasedIdGlobalHighPt') || passed('CutBasedIdTrkHighPt')))) |
+| [**Muon**](#muon) | slimmedMuons after basic selection (pt > 15 \|\| (pt > 3 && (passed("CutBasedIdLoose") \|\| passed("SoftCutBasedId") \|\| passed("SoftMvaId") \|\| passed("CutBasedIdGlobalHighPt") \|\| passed("CutBasedIdTrkHighPt")))) |
 | [**PSWeight**](#psweight) | PS weights (w_var / w_nominal);   [0] is ISR=2 FSR=1; [1] is ISR=1 FSR=2[2] is ISR=0.5 FSR=1; [3] is ISR=1 FSR=0.5; |
 | [**Pileup**](#pileup) | the number of pileup interactions that have been added to the event in the current bunch crossing |
 | [**ZCand**](#zcand) | Z candidates passing the full H4l selection |
