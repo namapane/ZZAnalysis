@@ -12,7 +12,17 @@ from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collect
 import sys
 
 class triggerAndSkim(Module):
+    def __del__(self):
+        print('***del triggerAndSkim', flush=True)
+
+    def endJob(self):
+         print("***triggerAndSkim.endJob", flush=True)
+
+    def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
+        print('***triggerAndSkim.endFile', flush=True)
+         
     def __init__(self, isMC=True, PD="", era=2018, passThru=False):
+        print("***triggerAndSkim", flush=True)
         self.writeHistFile = False
         self.isMC = isMC
         self.PD = PD
@@ -22,6 +32,7 @@ class triggerAndSkim(Module):
         print("***triggerAndSkim: IsMC:", self.isMC, "PD:", self.PD, "era:", self.era, "passThru:", passThru, flush=True)
         
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
+         print("***triggerAndSkim.beginFile", flush=True)
         self.out = wrappedOutputTree
         self.out.branch("HLT_passZZ4lEle", "O")   # pass Ele triggers
         self.out.branch("HLT_passZZ4lMu", "O")    # pass Muon triggers

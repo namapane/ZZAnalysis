@@ -11,6 +11,15 @@ from PhysicsTools.HeppyCore.utils.deltar import deltaR
 
 
 class lepFiller(Module):
+    def __del__(self):
+        print('***del lepFiller', flush=True)
+
+    def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
+        print('***LepFiller.endFile', flush=True)
+        
+    def endJob(self):
+         print("***lepFiller.endJob", flush=True)
+        
     def __init__(self, cuts, era):
         print("***lepFiller: era:", era, flush=True)
         self.writeHistFile=False
@@ -27,6 +36,7 @@ class lepFiller(Module):
         self.era = era
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
+        print('*** lepFiller:beginFile', flush=True)
         self.out = wrappedOutputTree
         
         self.out.branch("FsrPhoton_mass", "F", lenVar="nFsrPhoton") # Hack so that photon.p4() works
@@ -50,9 +60,6 @@ class lepFiller(Module):
         self.out.branch("Muon_fsrPhotonIdx", "S", lenVar="nMuon") # Overwrite existing value
         self.out.branch("Muon_pfRelIso03FsrCorr", "F", lenVar="nMuon", title="FSR-subtracted pfRelIso03")
         self.out.branch("Muon_passIso", "O", lenVar="nMuon", title="Pass ZZ isolation cut")
-
-#    def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
-#        pass
 
     # Recompute lepton isolation subtracting energy of the given FSR photons
     def isoFsrCorr(self, l, selectedFSR) : 

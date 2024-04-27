@@ -8,11 +8,11 @@ from __future__ import print_function
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
 from PhysicsTools.HeppyCore.utils.deltar import deltaR
-from ROOT import LeptonSFHelper
+#from ROOT import LeptonSFHelper
 
 from functools import cmp_to_key
-from ROOT import Mela, SimpleParticle_t, SimpleParticleCollection_t, TVar, TLorentzVector
-from ctypes import c_float
+#from ROOT import Mela, SimpleParticle_t, SimpleParticleCollection_t, TVar, TLorentzVector
+#from ctypes import c_float
 
 class StoreOption:
     # Define which SR candidates should be stored:
@@ -24,7 +24,12 @@ class StoreOption:
 
 
 class ZZFiller(Module):
+    def __del__(self):
+        print('***del ZZFiller', flush=True)
 
+    def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
+        print('***ZZFiller.endFile', flush=True)
+        
     def __init__(self, runMELA, bestCandByMELA, isMC, year, processCR, data_tag, addZL=False, debug=False):
         print("***ZZFiller: isMC:", isMC, "year:", year, flush=True)
         self.writeHistFile = False
@@ -91,7 +96,7 @@ class ZZFiller(Module):
         # NanoAODTools provides a module based on LeptonEfficiencyCorrector.cc, but that does not seem to be flexible enough for us:
         # https://github.com/cms-nanoAOD/nanoAOD-tools/blob/master/python/postprocessing/modules/common/lepSFProducer.py
         # UL16pre/postVFP and 2022pre/postEE have different SFs
-        self.lepSFHelper = LeptonSFHelper(self.DATA_TAG)
+#        self.lepSFHelper = LeptonSFHelper(self.DATA_TAG)
 
         if self.runMELA :
             sqrts=13.;
@@ -110,10 +115,11 @@ class ZZFiller(Module):
 
 
     def endJob(self):
-         print("", flush=True)
+         print("***ZZFiller.endJob", flush=True)
 
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
+        print("***ZZFiller.beginFile", flush=True)
         self.out = wrappedOutputTree
 
         self.out.branch("nZCand", "I", title="Z candidates passing the full H4l selection")
@@ -592,7 +598,7 @@ class ZZFiller(Module):
            mySCeta = min(mySCeta,2.49)
            mySCeta = max(mySCeta,-2.49)
 
-           SF = self.lepSFHelper.getSF(self.year, myLepID, lep.pt, lep.eta, mySCeta, isCrack)
+           SF = 1. #self.lepSFHelper.getSF(self.year, myLepID, lep.pt, lep.eta, mySCeta, isCrack)
 #           SF_Unc = self.lepSFHelper.getSFError(year, myLepID, lep.pt, lep.eta, mySCeta, isCrack)
            dataMCWeight *= SF
 

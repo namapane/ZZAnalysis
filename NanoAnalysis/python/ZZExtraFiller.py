@@ -17,11 +17,21 @@ from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collect
 #from PhysicsTools.NanoAODTools.postprocessing.tools import deltaR
 
 class ZZExtraFiller(Module):
+    def __del__(self):
+        print('***del ZZExtraFiller', flush=True)
+
+    def endJob(self):
+         print("***ZZExtraFiller.endJob", flush=True)
+
+    def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
+        print('***ZZExtraFiller.endFile', flush=True)
+         
     def __init__(self, region):
         print("***ZZExtraFiller", flush=True)
         self.region = region
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
+        print("***ZZExtraFiller.beginFile", flush=True)
         self.out = wrappedOutputTree
         self.out.branch("ZZCand_nExtraLep", "I", lenVar="nZZCand", title="number of extra leptons passing H4l full sel")
         self.out.branch("ZZCand_nExtraZ", "I", lenVar="nZZCand", title="number of extra Zs passing H4l full sel")
