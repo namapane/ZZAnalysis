@@ -32,7 +32,7 @@ class triggerAndSkim(Module):
         print("***triggerAndSkim: IsMC:", self.isMC, "PD:", self.PD, "era:", self.era, "passThru:", passThru, flush=True)
         
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
-         print("***triggerAndSkim.beginFile", flush=True)
+        print("***triggerAndSkim.beginFile", flush=True)
         self.out = wrappedOutputTree
         self.out.branch("HLT_passZZ4lEle", "O")   # pass Ele triggers
         self.out.branch("HLT_passZZ4lMu", "O")    # pass Muon triggers

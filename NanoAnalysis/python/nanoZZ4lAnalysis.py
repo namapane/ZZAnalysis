@@ -34,13 +34,13 @@ IsMC = getConf("IsMC", True)
 PD = getConf("PD", "")
 XSEC = getConf("XSEC", 1.)
 SYNCMODE = getConf("SYNCMODE", False)
-runMELA = getConf("runMELA", True)
-bestCandByMELA = getConf("bestCandByMELA", True) # requires also runMELA=True
+runMELA = False #getConf("runMELA", True)
+bestCandByMELA = False #getConf("bestCandByMELA", True) # requires also runMELA=True
 TRIGPASSTHROUGH = getConf("TRIGPASSTHROUGH", False) # Do not filter events that do not pass triggers (HLT_passZZ4l records if they did)
-PROCESS_CR = getConf("PROCESS_CR", False) # fill control regions
-PROCESS_ZL = getConf("PROCESS_ZL", False) # fill ZL control region
-APPLYMUCORR = getConf("APPLYMUCORR", True) # apply muon momentum scale/resolution corrections
-APPLYELECORR = getConf("APPLYELECORR", True) # apply electron momentum scale/resolution corrections
+PROCESS_CR = False # getConf("PROCESS_CR", False) # fill control regions
+PROCESS_ZL = False # getConf("PROCESS_ZL", False) # fill ZL control region
+APPLYMUCORR = False # getConf("APPLYMUCORR", True) # apply muon momentum scale/resolution corrections
+APPLYELECORR = False # getConf("APPLYELECORR", True) # apply electron momentum scale/resolution corrections
 # ggH NNLOPS weight
 APPLY_QCD_GGF_UNCERT = getConf("APPLY_QCD_GGF_UNCERT", False) 
 # K factors for ggZZ (and old NLO ggH samples) 0:None; 1: NNLO/LO; 2: NNLO/NLO; 3: NLO/LO
@@ -247,7 +247,7 @@ if IsMC:
     
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
 p = PostProcessor(".", fileNames,
-                  prefetch=True, longTermCache=False,
+                  prefetch=True, longTermCache=True,
                   cut=preselection, # pre-selection cuts (to speed up processing)
                   branchsel=branchsel_in, # select branches to be read
                   outputbranchsel=branchsel_out, # select branches to be written out
