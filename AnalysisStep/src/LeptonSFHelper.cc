@@ -156,15 +156,17 @@ LeptonSFHelper::LeptonSFHelper(int year, std::string const &data_tag) :
         f_mu = basePath+"final_HZZ_SF_Run3_2022_mupogsysts_newLoose_abseta3_fix_EFG_RMS.root"; // from /afs/cern.ch/user/y/yujil/public/SF2022/final_HZZ_SF_Run3_2022_mupogsysts_newLoose_abseta3_fix_EFG_RMS.root
       }
     }
-  } else if (year>=2023) { // 2023 Muons FIXME: add 2024
-    // 2023 Muons preBPix/postBPix/ - root files taken from /afs/cern.ch/user/y/yujil/public/SF2023/
-    if (year==2024) std::cout<<"WARNING 2024 muon ID SFs - for now using 2023postBPix"<<std::endl;
+  } else if (year==2023) { // 2023 Muons
+    // 2023 Muons preBPix/postBPix - root files taken from /afs/cern.ch/user/y/yujil/public/SF2023/
     if(data_tag.find("pre_BPix") != std::string::npos) { 
-      f_mu = basePath+"final_HZZ_SF_2023C_RMS_mupogsysts.root";
+      f_mu = basePath+"final_HZZ_SF_2023C_RMS_mupogsysts.root"; // md5sum: e66052503a1f6a02caec1edd6c16097b
     } else {
-      f_mu = basePath+"final_HZZ_SF_2023D_RMS_mupogsysts.root";
+      f_mu = basePath+"final_HZZ_SF_2023D_RMS_mupogsysts.root"; // md5sum: 20a4b2522bc53c2260a94fc35f69f1d9
     }
-  } else if (year<2016 or year>2024 ) {
+  } else if (year==2024 ) {
+    std::cout<<"WARNING 2024 muon ID SFs - preliminary version"<<std::endl;
+    f_mu = basePath+"prelimiary_HZZ_SF_2024_RMS_mupogsystsC.root"; // md5sum: c7a92b90d46ac34d5375ef9f86a50f85
+  } else {
     edm::LogError("LeptonSFHelper::") << "Mu SFs for " << theYear << " is not supported!";
     abort();
   }
