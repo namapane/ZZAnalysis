@@ -1,5 +1,14 @@
 identifier,process,crossSection=-1,BR=1,execute=True,dataset,prefix,pattern,splitLevel,::variables,::pyFragments,comment
 
-2022preEE_Data,,-1,,,/eos/cms/store/group/phys_higgs/cmshzz4l/cjlst/HIG-25-015/RunIII_byZ1Z2/Moriond26_JES/2022_Data/Data_eraCD_preEE.root,pylist,,1,NANOVERSION=12;LEPTON_SETUP=2023;JOBTYPE=nanoAOD,../prod/pyFragments/DefaultProbs.py,# Example to run on a single hadded file
-2023_Data,,-1,,,/eos/cms/store/group/phys_higgs/cmshzz4l/cjlst/HIG-25-015/RunIII_byZ1Z2/Moriond26_JES/2023_Data/Chunks,local,,1,NANOVERSION=12;LEPTON_SETUP=2023;JOBTYPE=nanoAOD,../prod/pyFragments/DefaultProbs.py,# Example to run on individual Chunks. The specified folder must contain all *and only* the Chunks folders.
+#,,,,,,,,,,# Example to run on a single hadded file
+#2022preEE_Data,,-1,,,/eos/cms/store/group/phys_higgs/cmshzz4l/cjlst/HIG-25-015/RunIII_byZ1Z2/Moriond26_JES/2022_Data/Data_eraCD_preEE.root,pylist,,1,NANOVERSION=12;LEPTON_SETUP=2023;JOBTYPE=nanoAOD,../prod/pyFragments/DefaultProbs.py,
 
+#,,,,,,,,,,# Example to run on individual Chunks. The specified folder must contain all *and only* the Chunks folders.
+# 2023_Data,,-1,,,/eos/cms/store/group/phys_higgs/cmshzz4l/cjlst/HIG-25-015/RunIII_byZ1Z2/Moriond26_JES/2023_Data/Chunks,local,,1,NANOVERSION=12;LEPTON_SETUP=2023;JOBTYPE=nanoAOD,../prod/pyFragments/DefaultProbs.py,
+
+#,,,,,,,,,,# Stat analysis preprocessor; use: batch_Condor.py samples_secondary.csv -i statPreprocessor.py
+2022preEE_ggH125,,-1,,,/eos/home-a/atarabin/STXS_samples/PROD_samplesNano_2022_MC_8d4c03f7/ggH125/ZZ4lAnalysis.root,pylist,,1,NANOVERSION=12;JOBTYPE=nanoAOD,,
+2022preEE_VBFH125,,-1,,,/eos/home-a/atarabin/STXS_samples/PROD_samplesNano_2022_MC_8d4c03f7/VBFH125/ZZ4lAnalysis.root,pylist,,1,NANOVERSION=12;JOBTYPE=nanoAOD,,
+2022preEE_WplusH125,,-1,,,/eos/home-a/atarabin/STXS_samples/PROD_samplesNano_2022_MC_8d4c03f7/WplusH125/ZZ4lAnalysis.root,pylist,,1,NANOVERSION=12;JOBTYPE=nanoAOD,,
+2022preEE_WminusH125,,-1,,,/eos/home-a/atarabin/STXS_samples/PROD_samplesNano_2022_MC_8d4c03f7/WminusH125/ZZ4lAnalysis.root,pylist,,1,NANOVERSION=12;JOBTYPE=nanoAOD,,
+2022preEE_ZH125,,-1,,,/eos/home-a/atarabin/STXS_samples/PROD_samplesNano_2022_MC_8d4c03f7/ZH125/ZZ4lAnalysis.root,pylist,,1,NANOVERSION=12;JOBTYPE=nanoAOD,,
