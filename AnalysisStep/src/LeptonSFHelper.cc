@@ -177,13 +177,13 @@ LeptonSFHelper::LeptonSFHelper(int year, std::string const &data_tag) :
     // 2023 Muons preBPix/postBPix - root files taken from /afs/cern.ch/user/y/yujil/public/SF2023/
     if(data_tag.find("pre_BPix") != std::string::npos) {
       if (MUON_ID_BYMVA) { 
-        throw std::runtime_error("LeptonSFHelper::getSF - MUON_ID_BYMVA not yet available for 2023!");
+	f_mu = basePath+"Muon_LowPtMVA/final_HZZ_SF_2023C_RMS_mupogsysts.root"; // md5sum: bb425233b85342fe1e0b56ac16c84bdd
       } else {
 	f_mu = basePath+"final_HZZ_SF_2023C_RMS_mupogsysts.root"; // md5sum: e66052503a1f6a02caec1edd6c16097b
       }
     } else { // post_BPix
       if (MUON_ID_BYMVA) { 
-        throw std::runtime_error("LeptonSFHelper::getSF - MUON_ID_BYMVA not yet available for 2023!");
+	f_mu = basePath+"Muon_LowPtMVA/final_HZZ_SF_2023D_RMS_mupogsysts.root"; // md5sum: de5b3d609a775837e75100958be940fa
       } else {
 	f_mu = basePath+"final_HZZ_SF_2023D_RMS_mupogsysts.root"; // md5sum: 20a4b2522bc53c2260a94fc35f69f1d9
       }
